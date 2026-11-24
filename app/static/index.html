@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Production RAG</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main>
+    <h1>NIST Production RAG</h1>
+    <section>
+      <h2>Documents</h2>
+      <form id="upload-form">
+        <input id="file" type="file" accept=".pdf,.docx" required>
+        <button type="submit">Upload</button>
+      </form>
+      <ul id="documents"></ul>
+    </section>
+    <section>
+      <h2>Ask a question</h2>
+      <form id="ask-form">
+        <textarea id="question" maxlength="2000" required></textarea>
+        <button type="submit">Ask</button>
+      </form>
+      <div id="answer"></div>
+      <h3>Retrieved chunks</h3>
+      <div id="chunks"></div>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

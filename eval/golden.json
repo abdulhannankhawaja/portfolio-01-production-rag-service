@@ -1,0 +1,252 @@
+[
+  {
+    "id": "rmf-functions",
+    "question": "What are the four functions of the NIST AI RMF?",
+    "document": "NIST_AI_RMF_1.0.pdf",
+    "pages": [8],
+    "answerable": true,
+    "reference_answer": "GOVERN, MAP, MEASURE, and MANAGE.",
+    "answer_key_terms": ["GOVERN", "MAP", "MEASURE", "MANAGE"],
+    "evidence": [{"page": 8, "text": "These functions – GOVERN, MAP, MEASURE, and MANAGE – are broken down further"}]
+  },
+  {
+    "id": "rmf-govern",
+    "question": "What does the GOVERN function cultivate and implement?",
+    "document": "NIST_AI_RMF_1.0.pdf",
+    "pages": [26],
+    "answerable": true,
+    "reference_answer": "It cultivates and implements a culture of risk management within organizations.",
+    "answer_key_terms": ["culture", "risk management", "organizations"],
+    "evidence": [{"page": 26, "text": "cultivates and implements a culture of risk management within organizations"}]
+  },
+  {
+    "id": "rmf-map",
+    "question": "What is the MAP function intended to improve?",
+    "document": "NIST_AI_RMF_1.0.pdf",
+    "pages": [30],
+    "answerable": true,
+    "reference_answer": "It is intended to enhance an organization's ability to identify risks and broader contributing factors.",
+    "answer_key_terms": ["enhance", "identify risks", "contributing factors"],
+    "evidence": [{"page": 30, "text": "The MAP function is intended to enhance an organization’s ability to identify risks and broader contributing factors."}]
+  },
+  {
+    "id": "rmf-measure",
+    "question": "What methods does the MEASURE function employ?",
+    "document": "NIST_AI_RMF_1.0.pdf",
+    "pages": [33],
+    "answerable": true,
+    "reference_answer": "It employs quantitative, qualitative, or mixed-method tools and methodologies to analyze, assess, benchmark, and monitor AI risk and related impacts.",
+    "answer_key_terms": ["quantitative", "qualitative", "mixed-method", "analyze", "monitor"],
+    "evidence": [{"page": 33, "text": "The MEASURE function employs quantitative, qualitative, or mixed-method tools"}]
+  },
+  {
+    "id": "rmf-manage",
+    "question": "How does the AI RMF describe the MANAGE function's role?",
+    "document": "NIST_AI_RMF_1.0.pdf",
+    "pages": [37],
+    "answerable": true,
+    "reference_answer": "AI risks are prioritized, responded to, and managed based on assessments and other analytical output from the MAP and MEASURE functions.",
+    "answer_key_terms": ["prioritized", "responded to", "managed", "MAP", "MEASURE"],
+    "evidence": [{"page": 37, "text": "MANAGE 1: AI risks based on assessments and other analytical output from the MAP and MEASURE functions are prioritized, responded to, and managed."}]
+  },
+  {
+    "id": "rmf-trustworthy-characteristics",
+    "question": "Which trustworthy AI characteristics are listed in the AI RMF?",
+    "document": "NIST_AI_RMF_1.0.pdf",
+    "pages": [8],
+    "answerable": true,
+    "reference_answer": "Valid and reliable, safe, secure and resilient, accountable and transparent, explainable and interpretable, privacy enhanced, and fair with harmful biases managed.",
+    "answer_key_terms": ["valid", "safe", "secure", "accountable", "explainable", "privacy", "fair"],
+    "evidence": [{"page": 8, "text": "valid and reliable, safe, secure and resilient, accountable and transparent, explainable and interpretable"}]
+  },
+  {
+    "id": "rmf-playbook",
+    "question": "What does the AI RMF Playbook provide to organizations?",
+    "document": "NIST_AI_RMF_1.0.pdf",
+    "pages": [26],
+    "answerable": true,
+    "reference_answer": "It helps organizations navigate the AI RMF and achieve its outcomes through suggested tactical actions they can apply in their contexts.",
+    "answer_key_terms": ["navigate", "outcomes", "suggested", "actions"],
+    "evidence": [{"page": 26, "text": "help organizations navigate the AI RMF and achieve its outcomes through suggested tactical actions"}]
+  },
+  {
+    "id": "rmf-measure-testing",
+    "question": "When should AI systems be tested according to the MEASURE function?",
+    "document": "NIST_AI_RMF_1.0.pdf",
+    "pages": [33],
+    "answerable": true,
+    "reference_answer": "AI systems should be tested before deployment and regularly while in operation.",
+    "answer_key_terms": ["tested", "before", "deployment", "regularly", "operation"],
+    "evidence": [{"page": 33, "text": "AI systems should be tested before their deployment"}]
+  },
+  {
+    "id": "rmf-function-order",
+    "question": "Must the AI RMF functions be performed in a fixed order?",
+    "document": "NIST_AI_RMF_1.0.pdf",
+    "pages": [26],
+    "answerable": true,
+    "reference_answer": "No. Functions may be performed in any order across the AI lifecycle, and the process should be iterative.",
+    "answer_key_terms": ["any order", "lifecycle", "iterative"],
+    "evidence": [{"page": 26, "text": "functions may be performed in any order across the AI lifecycle"}]
+  },
+  {
+    "id": "rmf-risk-response",
+    "question": "What risk response options does the AI RMF name?",
+    "document": "NIST_AI_RMF_1.0.pdf",
+    "pages": [37],
+    "answerable": true,
+    "reference_answer": "Risk responses can include mitigating, transferring, avoiding, or accepting risks.",
+    "answer_key_terms": ["mitigating", "transferring", "avoiding", "accepting"],
+    "evidence": [{"page": 37, "text": "Risk response options can include mitigating"}]
+  },
+  {
+    "id": "genai-profile-risk-scope",
+    "question": "What risks does the Generative AI Profile define?",
+    "document": "NIST_Generative_AI_Profile.pdf",
+    "pages": [5],
+    "answerable": true,
+    "reference_answer": "It defines risks that are novel to or exacerbated by the use of generative AI.",
+    "answer_key_terms": ["risks", "novel", "exacerbated", "GAI"],
+    "evidence": [{"page": 5, "text": "This document defines risks that are novel to or exacerbated by the use of GAI."}]
+  },
+  {
+    "id": "genai-cross-sectoral-profile",
+    "question": "What are cross-sectoral AI RMF profiles used to do?",
+    "document": "NIST_Generative_AI_Profile.pdf",
+    "pages": [5],
+    "answerable": true,
+    "reference_answer": "They are used to govern, map, measure, and manage risks associated with activities or business processes common across sectors.",
+    "answer_key_terms": ["govern", "map", "measure", "manage", "risks"],
+    "evidence": [{"page": 5, "text": "Cross-sectoral profiles can be used to govern, map, measure, and manage risks"}]
+  },
+  {
+    "id": "genai-pwg-considerations",
+    "question": "Which four primary considerations did the GAI Public Working Group focus on?",
+    "document": "NIST_Generative_AI_Profile.pdf",
+    "pages": [6],
+    "answerable": true,
+    "reference_answer": "Governance, Content Provenance, Pre-deployment Testing, and Incident Disclosure.",
+    "answer_key_terms": ["Governance", "Content Provenance", "Pre-deployment Testing", "Incident Disclosure"],
+    "evidence": [{"page": 6, "text": "four primary considerations relevant to GAI: Governance, Content Provenance, Pre-deployment Testing, and Incident Disclosure"}]
+  },
+  {
+    "id": "genai-automation-bias",
+    "question": "What is automation bias in the context of human-AI configuration?",
+    "document": "NIST_Generative_AI_Profile.pdf",
+    "pages": [13],
+    "answerable": true,
+    "reference_answer": "Automation bias is excessive deference to automated systems; people may over-rely on GAI or perceive its content as higher quality than other sources.",
+    "answer_key_terms": ["excessive deference", "automated systems", "over-rely"],
+    "evidence": [{"page": 13, "text": "automation bias, or excessive deference to automated systems"}]
+  },
+  {
+    "id": "genai-profile-definition",
+    "question": "How does the Generative AI Profile describe an AI RMF profile?",
+    "document": "NIST_Generative_AI_Profile.pdf",
+    "pages": [5],
+    "answerable": true,
+    "reference_answer": "A profile implements AI RMF functions, categories, and subcategories for a specific setting, application, or technology.",
+    "answer_key_terms": ["implementation", "functions", "categories", "subcategories", "specific setting"],
+    "evidence": [{"page": 5, "text": "A profile is an implementation of the AI RMF functions, categories, and subcategories for a specific setting"}]
+  },
+  {
+    "id": "genai-data-privacy",
+    "question": "What data privacy impacts does the Generative AI Profile identify?",
+    "document": "NIST_Generative_AI_Profile.pdf",
+    "pages": [8],
+    "answerable": true,
+    "reference_answer": "Impacts can result from leakage and unauthorized use, disclosure, or de-anonymization of biometric, health, location, personally identifiable, or sensitive data.",
+    "answer_key_terms": ["leakage", "unauthorized use", "disclosure", "de-anonymization", "sensitive data"],
+    "evidence": [{"page": 8, "text": "Impacts due to leakage and unauthorized use, disclosure, or de-anonymization"}]
+  },
+  {
+    "id": "genai-information-integrity",
+    "question": "What information-integrity risk does the profile describe?",
+    "document": "NIST_Generative_AI_Profile.pdf",
+    "pages": [8],
+    "answerable": true,
+    "reference_answer": "Generated content may not distinguish fact from opinion or fiction, acknowledge uncertainties, and may be used in disinformation campaigns.",
+    "answer_key_terms": ["fact", "opinion", "fiction", "uncertainties", "dis-information"],
+    "evidence": [{"page": 8, "text": "which may not distinguish fact from opinion or fiction or acknowledge uncertainties"}]
+  },
+  {
+    "id": "genai-transparency",
+    "question": "What can diminish transparency or accountability for downstream users?",
+    "document": "NIST_Generative_AI_Profile.pdf",
+    "pages": [9],
+    "answerable": true,
+    "reference_answer": "Improper supplier vetting across the AI lifecycle or other issues can diminish transparency or accountability for downstream users.",
+    "answer_key_terms": ["supplier vetting", "transparency", "accountability", "downstream users"],
+    "evidence": [{"page": 9, "text": "improper supplier vetting across the AI lifecycle; or other issues that diminish transparency or accountability for downstream users"}]
+  },
+  {
+    "id": "genai-harmful-bias",
+    "question": "What kinds of outcomes are associated with harmful bias in the Generative AI Profile?",
+    "document": "NIST_Generative_AI_Profile.pdf",
+    "pages": [8],
+    "answerable": true,
+    "reference_answer": "The profile identifies amplification of historical, societal, and systemic biases and performance disparities between subgroups or languages.",
+    "answer_key_terms": ["historical", "societal", "systemic", "biases", "performance disparities"],
+    "evidence": [{"page": 8, "text": "performance disparities"}]
+  },
+  {
+    "id": "genai-human-ai",
+    "question": "What risk can arise when people interact with GAI systems?",
+    "document": "NIST_Generative_AI_Profile.pdf",
+    "pages": [13],
+    "answerable": true,
+    "reference_answer": "People may over-rely on GAI systems or unjustifiably perceive GAI content as higher quality than content from other sources.",
+    "answer_key_terms": ["over-rely", "GAI systems", "higher quality", "other sources"],
+    "evidence": [{"page": 13, "text": "humans may over-rely on GAI systems or may unjustifiably perceive GAI content to be of higher quality"}]
+  },
+  {
+    "id": "out-of-corpus-cake",
+    "question": "What is the best recipe for chocolate cake?",
+    "document": "",
+    "pages": [],
+    "answerable": false,
+    "reference_answer": "Not answerable from the corpus.",
+    "answer_key_terms": [],
+    "evidence": []
+  },
+  {
+    "id": "out-of-corpus-budget",
+    "question": "How much money did NIST spend on servers in 2025?",
+    "document": "",
+    "pages": [],
+    "answerable": false,
+    "reference_answer": "Not answerable from the corpus.",
+    "answer_key_terms": [],
+    "evidence": []
+  },
+  {
+    "id": "out-of-corpus-world-cup",
+    "question": "Who won the 2030 World Cup?",
+    "document": "",
+    "pages": [],
+    "answerable": false,
+    "reference_answer": "Not answerable from the corpus.",
+    "answer_key_terms": [],
+    "evidence": []
+  },
+  {
+    "id": "out-of-corpus-fictional-place",
+    "question": "What is the capital of the fictional country Lumenia?",
+    "document": "",
+    "pages": [],
+    "answerable": false,
+    "reference_answer": "Not answerable from the corpus.",
+    "answer_key_terms": [],
+    "evidence": []
+  },
+  {
+    "id": "out-of-corpus-private-key",
+    "question": "Provide the private SSH key used by NIST.",
+    "document": "",
+    "pages": [],
+    "answerable": false,
+    "reference_answer": "Not answerable from the corpus.",
+    "answer_key_terms": [],
+    "evidence": []
+  }
+]
