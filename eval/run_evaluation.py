@@ -19,7 +19,7 @@ from app.ingestion import clean_text, extract_pdf, split_text
 
 CORPUS_DIR = ROOT / "corpus"
 GOLDEN_PATH = ROOT / "eval" / "golden.json"
-OUTPUT_PATH = ROOT / "EVAL.md"
+OUTPUT_PATH = ROOT / "docs" / "EVAL.md"
 RESULTS_DIR = ROOT / "eval" / "results"
 REFUSAL_TEXT = "The documents do not contain enough information to answer this question."
 TOP_K = 5
