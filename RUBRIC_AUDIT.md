@@ -1,0 +1,77 @@
+# Rubric and Project-Prompt Audit
+
+**Audit date:** 2026-11-24
+
+**Evidence basis:** current repository, 48 focused automated tests, the
+executed `notebooks/pipeline.ipynb`, and the local evaluation run in
+[EVAL.md](./EVAL.md). Answer-side evaluation and saved notebook output predate
+the latest extractive-generator refinement and need refresh.
+
+Status definitions: **Verified** means implementation and available execution
+evidence support the requirement; **Partially verified** means meaningful work
+exists but required evidence or scope is incomplete; **Not implemented** means
+the feature is absent; **Not verified** means evidence is unavailable.
+
+## Mandatory rubric items
+
+| Item | Marks | Status | Evidence and remaining gap |
+|---|---:|---|---|
+| M1 Structure | 6 | Partially verified | `app/`, `tests/`, `eval/`, and `notebooks/` exist. Layout differs from the requested `frontend/`, `app/ingestion/`, and `evals/` paths; code is kept in `app/static/`, `app/ingestion.py`, and `eval/`. |
+| M2 Frontend | 8 | Partially verified | Vanilla HTML/CSS/JS supports upload, documents, questions, citations, and retrieved chunks. No genuine frontend/Swagger screenshots or demo-video walkthrough are included. |
+| M3 DESIGN.md | 9 | Verified | [DESIGN.md](./DESIGN.md) documents component choices, trade-offs, data flows, grounding, score semantics, API, tests, and limitations. |
+| M4 API design | 4 | Verified | FastAPI routes and schemas are implemented; [tests/test_app.py](./tests/test_app.py) covers API behaviors, validation, and response fields. |
+| M5 Ingestion | 8 | Partially verified | PDF/DOCX extraction, validation, token-aware chunking, metadata, deduplication, lifecycle, and deletion are implemented and tested. The corpus contains PDFs only; no user-supplied DOCX has been evaluated. |
+| M6 Grounded answers | 8 | Partially verified | API tests cover citation validation, refusal, and retrieved-chunk responses. The saved notebook output and answer-side evaluation predate the latest local extractor change; optional Gemini quality has not been measured. |
+| M7 Golden set and results | 12 | Partially verified | 25 cases and real retrieval/threshold results are in [eval/golden.json](./eval/golden.json) and [EVAL.md](./EVAL.md). Labels/reference terms have not been independently user-reviewed; broader question types and human answer grading are missing. |
+| M8 Evaluation frameworks and reproducibility | 8 | Partially verified | One command reproduces deterministic JSON/CSV results and compares two context-safe chunk sizes, changing only chunk size. RAGAS/Langfuse or a validated LLM judge, judge-human agreement, and quota-resume caching are absent. |
+| M9 Guardrails | 6 | Partially verified | Input checks, prompt-injection/jailbreak patterns, document validation, secret-output checks, grounding, and citation checks exist. Pattern matching is limited; malicious instructions inside an uploaded document are not covered by a demonstrated test/video. |
+| M10 Errors and status codes | 4 | Verified | Routes map validation, unsupported uploads, duplicates, size limits, provider failures, and rate limits to explicit HTTP responses; focused API tests exercise representative cases. |
+| M11 Testing | 6 | Partially verified | Focused suite: **48 passed**. Includes local Chroma/SQLite round trips and cleanup plus API, generation, and ingestion tests. Not every requested provider-timeout, in-document injection, and adversarial/concurrency scenario is covered. |
+| M12 Code quality | 6 | Partially verified | Settings, service layer, type annotations, pinned dependencies, and bounded timeouts/retries are present. No dedicated type-check/linter run or broader deployment-quality review is recorded. |
+| M13 Git | 4 | Partially verified | Work is on `feat/production-rag-service`, tracking `origin`. Changes remain uncommitted; the user-staged `.code-workspace` file is intentionally untouched. No feature-by-feature branch history or push is verified. |
+| M14 README, requirements, screenshots, AI docs | 3 | Partially verified | README, pinned `requirements.txt`, and [AI_USAGE.md](./AI_USAGE.md) exist. Genuine screenshots are absent; the complete chat export must be supplied by the user. |
+| M15 Demo video | 8 | Not verified | No demo video is present. |
+
+**Verified mandatory score only: 17 / 100** (M3 + M4 + M10). Partial or
+unverified items receive no marks in this conservative total.
+
+## Bonus items
+
+| Item | Marks | Status | Evidence and remaining gap |
+|---|---:|---|---|
+| B1 JWT | 5 | Not implemented | No authentication or per-user data isolation. |
+| B2 Multilingual | 4 | Not implemented | No multilingual model/question evaluation or answer-language test. |
+| B3 Monitoring | 4 | Partially verified | Request ID, status, and latency logging exists. No p50/p95, token/cost, or operational dashboard report. |
+| B4 Modern frontend | 3 | Not implemented | The required plain HTML/CSS/JS frontend is used; no React/Next.js bonus. |
+| B5 Extra file types | 2 | Not implemented | PDF and DOCX are supported; no additional formats. |
+| B6 Document guardrails | 3 | Partially verified | PDF/DOCX structure, encrypted files, DOCX archive limits, and malformed inputs are checked. No full malicious-document campaign or video demonstration. |
+| B7 Edge cases | 4 | Partially verified | Tests cover duplicates, invalid/encrypted/scanned uploads, empty index, deletion, rate limits, and cleanup. Concurrency, contradiction handling, and video evidence remain. |
+| B8 Deployment | 3 | Not implemented | No deployed service or verified host persistence/configuration. |
+
+**Verified bonus score: 0 / 28.**
+
+## Submission gate and critical work
+
+**M7 is not verified to submission standard. The project is NOT safe to submit
+as final evidence yet.** The evaluation run is real and reproducible, but the
+user must review the corpus/questions/references, provide a real DOCX source,
+and hand-grade answers. The current two-PDF set is small; its retrieval Hit@5
+is 60% for 400/100 and 65% for 500/100. Those are retrieval metrics, not answer
+accuracy. See [ACCURACY_REPORT.md](./ACCURACY_REPORT.md).
+
+Remaining work, in priority order:
+
+1. User supplies and reviews the legally usable PDF + DOCX corpus, gold
+   questions, answer references, and page/section labels.
+2. Expand the question set with the required reworded, multi-part,
+   cross-passage, and negative cases; hand-grade at least ten answers.
+3. If an LLM judge is used, validate it against human grades and report
+   disagreement; otherwise document the evidence-based reason for omitting it.
+4. Record genuine screenshots and the required demo video; do not fabricate
+   submission evidence.
+5. Commit reviewed project changes without including the pre-staged workspace
+   file, then push the branch from a GitHub-authenticated environment. This
+   environment has not pushed anything.
+
+No score is awarded for work that still depends on user review or absent
+submission artifacts. See [PROGRESS.md](./PROGRESS.md) for the current state.

@@ -1,0 +1,640 @@
+{
+  "run_date": "2026-11-25",
+  "corpus": [
+    "NIST_AI_RMF_1.0.pdf",
+    "NIST_Generative_AI_Profile.pdf"
+  ],
+  "gold_cases": 25,
+  "answerable_cases": 20,
+  "unanswerable_cases": 5,
+  "embedding_model": "intfloat/e5-small-v2",
+  "versions": {
+    "sentence-transformers": "5.7.0",
+    "transformers": "5.24.0",
+    "torch": "2.15.0"
+  },
+  "retrieval_top_k": 5,
+  "threshold_sweep": [
+    0.3,
+    0.35,
+    0.4,
+    0.45,
+    0.5,
+    0.55,
+    0.6,
+    0.65,
+    0.7,
+    0.75,
+    0.8,
+    0.82,
+    0.84,
+    0.86,
+    0.88,
+    0.9,
+    0.92,
+    0.94,
+    0.96
+  ],
+  "selected_threshold": 0.84,
+  "configurations": [
+    {
+      "retrieval": {
+        "chunk_size": 400,
+        "overlap": 100,
+        "chunk_count": 776,
+        "answerable_questions": 20,
+        "relevant_pages": 20,
+        "hit_rate_at_5": 0.6,
+        "page_recall_at_5": 0.6,
+        "mrr_at_5": 0.4416666666666667
+      },
+      "threshold_sweep": [
+        {
+          "threshold": null,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.3,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.35,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.4,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.45,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.5,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.55,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.6,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.65,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.7,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.75,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.2,
+          "balanced_abstention_accuracy": 0.6,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.8,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.6,
+          "balanced_abstention_accuracy": 0.8,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.82,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.4575,
+          "out_of_corpus_refusal_rate": 0.6,
+          "balanced_abstention_accuracy": 0.8,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.45
+        },
+        {
+          "threshold": 0.84,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.42000000000000004,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 1.0,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.4
+        },
+        {
+          "threshold": 0.86,
+          "answerable_response_rate": 0.75,
+          "answerable_refusal_rate": 0.25,
+          "answer_key_term_coverage": 0.3075,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.875,
+          "valid_citation_rate": 0.75,
+          "relevant_page_citation_rate": 0.25
+        },
+        {
+          "threshold": 0.88,
+          "answerable_response_rate": 0.55,
+          "answerable_refusal_rate": 0.45,
+          "answer_key_term_coverage": 0.22833333333333333,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.775,
+          "valid_citation_rate": 0.55,
+          "relevant_page_citation_rate": 0.2
+        },
+        {
+          "threshold": 0.9,
+          "answerable_response_rate": 0.15,
+          "answerable_refusal_rate": 0.85,
+          "answer_key_term_coverage": 0.01,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.575,
+          "valid_citation_rate": 0.15,
+          "relevant_page_citation_rate": 0.0
+        },
+        {
+          "threshold": 0.92,
+          "answerable_response_rate": 0.05,
+          "answerable_refusal_rate": 0.95,
+          "answer_key_term_coverage": 0.01,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.525,
+          "valid_citation_rate": 0.05,
+          "relevant_page_citation_rate": 0.0
+        },
+        {
+          "threshold": 0.94,
+          "answerable_response_rate": 0.0,
+          "answerable_refusal_rate": 1.0,
+          "answer_key_term_coverage": 0.0,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.5,
+          "valid_citation_rate": 0.0,
+          "relevant_page_citation_rate": 0.0
+        },
+        {
+          "threshold": 0.96,
+          "answerable_response_rate": 0.0,
+          "answerable_refusal_rate": 1.0,
+          "answer_key_term_coverage": 0.0,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.5,
+          "valid_citation_rate": 0.0,
+          "relevant_page_citation_rate": 0.0
+        }
+      ],
+      "failures_at_selected_threshold": {
+        "retrieval_miss_ids": [
+          "rmf-manage",
+          "rmf-trustworthy-characteristics",
+          "rmf-function-order",
+          "rmf-risk-response",
+          "genai-data-privacy",
+          "genai-information-integrity",
+          "genai-harmful-bias",
+          "genai-human-ai"
+        ],
+        "retrieval_miss_examples": [
+          {
+            "id": "rmf-manage",
+            "expected": [
+              "NIST_AI_RMF_1.0.pdf#page-37"
+            ],
+            "retrieved": [
+              "NIST_AI_RMF_1.0.pdf#page-25",
+              "NIST_AI_RMF_1.0.pdf#page-38",
+              "NIST_AI_RMF_1.0.pdf#page-44",
+              "NIST_AI_RMF_1.0.pdf#page-46",
+              "NIST_AI_RMF_1.0.pdf#page-26"
+            ]
+          },
+          {
+            "id": "rmf-trustworthy-characteristics",
+            "expected": [
+              "NIST_AI_RMF_1.0.pdf#page-8"
+            ],
+            "retrieved": [
+              "NIST_AI_RMF_1.0.pdf#page-47",
+              "NIST_Generative_AI_Profile.pdf#page-16",
+              "NIST_AI_RMF_1.0.pdf#page-17",
+              "NIST_AI_RMF_1.0.pdf#page-44",
+              "NIST_AI_RMF_1.0.pdf#page-7"
+            ]
+          },
+          {
+            "id": "rmf-function-order",
+            "expected": [
+              "NIST_AI_RMF_1.0.pdf#page-26"
+            ],
+            "retrieved": [
+              "NIST_AI_RMF_1.0.pdf#page-44",
+              "NIST_AI_RMF_1.0.pdf#page-3",
+              "NIST_AI_RMF_1.0.pdf#page-6",
+              "NIST_Generative_AI_Profile.pdf#page-5",
+              "NIST_AI_RMF_1.0.pdf#page-25"
+            ]
+          },
+          {
+            "id": "rmf-risk-response",
+            "expected": [
+              "NIST_AI_RMF_1.0.pdf#page-37"
+            ],
+            "retrieved": [
+              "NIST_AI_RMF_1.0.pdf#page-9",
+              "NIST_AI_RMF_1.0.pdf#page-14",
+              "NIST_AI_RMF_1.0.pdf#page-38",
+              "NIST_AI_RMF_1.0.pdf#page-9",
+              "NIST_AI_RMF_1.0.pdf#page-47"
+            ]
+          },
+          {
+            "id": "genai-data-privacy",
+            "expected": [
+              "NIST_Generative_AI_Profile.pdf#page-8"
+            ],
+            "retrieved": [
+              "NIST_Generative_AI_Profile.pdf#page-14",
+              "NIST_Generative_AI_Profile.pdf#page-12",
+              "NIST_Generative_AI_Profile.pdf#page-11",
+              "NIST_Generative_AI_Profile.pdf#page-60",
+              "NIST_AI_RMF_1.0.pdf#page-17"
+            ]
+          }
+        ],
+        "answerable_refusal_ids_at_threshold": [],
+        "unanswerable_answer_ids_at_threshold": []
+      }
+    },
+    {
+      "retrieval": {
+        "chunk_size": 500,
+        "overlap": 100,
+        "chunk_count": 359,
+        "answerable_questions": 20,
+        "relevant_pages": 20,
+        "hit_rate_at_5": 0.65,
+        "page_recall_at_5": 0.65,
+        "mrr_at_5": 0.49333333333333335
+      },
+      "threshold_sweep": [
+        {
+          "threshold": null,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.3,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.35,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.4,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.45,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.5,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.55,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.6,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.65,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.7,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.75,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.4,
+          "balanced_abstention_accuracy": 0.7,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.8,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.6,
+          "balanced_abstention_accuracy": 0.8,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.82,
+          "answerable_response_rate": 1.0,
+          "answerable_refusal_rate": 0.0,
+          "answer_key_term_coverage": 0.485,
+          "out_of_corpus_refusal_rate": 0.6,
+          "balanced_abstention_accuracy": 0.8,
+          "valid_citation_rate": 1.0,
+          "relevant_page_citation_rate": 0.5
+        },
+        {
+          "threshold": 0.84,
+          "answerable_response_rate": 0.9,
+          "answerable_refusal_rate": 0.1,
+          "answer_key_term_coverage": 0.385,
+          "out_of_corpus_refusal_rate": 0.8,
+          "balanced_abstention_accuracy": 0.8500000000000001,
+          "valid_citation_rate": 0.9,
+          "relevant_page_citation_rate": 0.4
+        },
+        {
+          "threshold": 0.86,
+          "answerable_response_rate": 0.7,
+          "answerable_refusal_rate": 0.3,
+          "answer_key_term_coverage": 0.29500000000000004,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.85,
+          "valid_citation_rate": 0.7,
+          "relevant_page_citation_rate": 0.25
+        },
+        {
+          "threshold": 0.88,
+          "answerable_response_rate": 0.45,
+          "answerable_refusal_rate": 0.55,
+          "answer_key_term_coverage": 0.195,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.725,
+          "valid_citation_rate": 0.45,
+          "relevant_page_citation_rate": 0.15
+        },
+        {
+          "threshold": 0.9,
+          "answerable_response_rate": 0.1,
+          "answerable_refusal_rate": 0.9,
+          "answer_key_term_coverage": 0.01,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.55,
+          "valid_citation_rate": 0.1,
+          "relevant_page_citation_rate": 0.0
+        },
+        {
+          "threshold": 0.92,
+          "answerable_response_rate": 0.05,
+          "answerable_refusal_rate": 0.95,
+          "answer_key_term_coverage": 0.01,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.525,
+          "valid_citation_rate": 0.05,
+          "relevant_page_citation_rate": 0.0
+        },
+        {
+          "threshold": 0.94,
+          "answerable_response_rate": 0.0,
+          "answerable_refusal_rate": 1.0,
+          "answer_key_term_coverage": 0.0,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.5,
+          "valid_citation_rate": 0.0,
+          "relevant_page_citation_rate": 0.0
+        },
+        {
+          "threshold": 0.96,
+          "answerable_response_rate": 0.0,
+          "answerable_refusal_rate": 1.0,
+          "answer_key_term_coverage": 0.0,
+          "out_of_corpus_refusal_rate": 1.0,
+          "balanced_abstention_accuracy": 0.5,
+          "valid_citation_rate": 0.0,
+          "relevant_page_citation_rate": 0.0
+        }
+      ],
+      "failures_at_selected_threshold": {
+        "retrieval_miss_ids": [
+          "rmf-manage",
+          "rmf-trustworthy-characteristics",
+          "rmf-function-order",
+          "rmf-risk-response",
+          "genai-data-privacy",
+          "genai-harmful-bias",
+          "genai-human-ai"
+        ],
+        "retrieval_miss_examples": [
+          {
+            "id": "rmf-manage",
+            "expected": [
+              "NIST_AI_RMF_1.0.pdf#page-37"
+            ],
+            "retrieved": [
+              "NIST_AI_RMF_1.0.pdf#page-25",
+              "NIST_AI_RMF_1.0.pdf#page-46",
+              "NIST_AI_RMF_1.0.pdf#page-38",
+              "NIST_AI_RMF_1.0.pdf#page-26",
+              "NIST_AI_RMF_1.0.pdf#page-30"
+            ]
+          },
+          {
+            "id": "rmf-trustworthy-characteristics",
+            "expected": [
+              "NIST_AI_RMF_1.0.pdf#page-8"
+            ],
+            "retrieved": [
+              "NIST_AI_RMF_1.0.pdf#page-47",
+              "NIST_AI_RMF_1.0.pdf#page-7",
+              "NIST_AI_RMF_1.0.pdf#page-9",
+              "NIST_AI_RMF_1.0.pdf#page-17",
+              "NIST_AI_RMF_1.0.pdf#page-25"
+            ]
+          },
+          {
+            "id": "rmf-function-order",
+            "expected": [
+              "NIST_AI_RMF_1.0.pdf#page-26"
+            ],
+            "retrieved": [
+              "NIST_AI_RMF_1.0.pdf#page-3",
+              "NIST_Generative_AI_Profile.pdf#page-5",
+              "NIST_AI_RMF_1.0.pdf#page-25",
+              "NIST_AI_RMF_1.0.pdf#page-15",
+              "NIST_AI_RMF_1.0.pdf#page-7"
+            ]
+          },
+          {
+            "id": "rmf-risk-response",
+            "expected": [
+              "NIST_AI_RMF_1.0.pdf#page-37"
+            ],
+            "retrieved": [
+              "NIST_AI_RMF_1.0.pdf#page-9",
+              "NIST_AI_RMF_1.0.pdf#page-47",
+              "NIST_AI_RMF_1.0.pdf#page-9",
+              "NIST_Generative_AI_Profile.pdf#page-5",
+              "NIST_AI_RMF_1.0.pdf#page-25"
+            ]
+          },
+          {
+            "id": "genai-data-privacy",
+            "expected": [
+              "NIST_Generative_AI_Profile.pdf#page-8"
+            ],
+            "retrieved": [
+              "NIST_Generative_AI_Profile.pdf#page-11",
+              "NIST_Generative_AI_Profile.pdf#page-12",
+              "NIST_Generative_AI_Profile.pdf#page-59",
+              "NIST_Generative_AI_Profile.pdf#page-60",
+              "NIST_AI_RMF_1.0.pdf#page-22"
+            ]
+          }
+        ],
+        "answerable_refusal_ids_at_threshold": [
+          "rmf-measure",
+          "genai-transparency"
+        ],
+        "unanswerable_answer_ids_at_threshold": [
+          "out-of-corpus-private-key"
+        ]
+      }
+    }
+  ],
+  "evaluation_limitations": [
+    "Reference labels and answer key terms have not been independently hand-graded.",
+    "Answer key-term coverage is a lexical proxy, not correctness or faithfulness.",
+    "No LLM judge, RAGAS, or Langfuse calls are made."
+  ]
+}
