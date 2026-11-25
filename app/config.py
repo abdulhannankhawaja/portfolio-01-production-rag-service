@@ -1,4 +1,5 @@
 from pathlib import Path
+import secrets
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,6 +17,13 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
+    gemini_input_cost_per_million: float | None = Field(default=None, ge=0)
+    gemini_output_cost_per_million: float | None = Field(default=None, ge=0)
+    jwt_secret_key: str = Field(
+        default_factory=lambda: secrets.token_urlsafe(48),
+        min_length=32,
+    )
+    jwt_access_token_minutes: int = Field(default=60, gt=0, le=1440)
     llm_temperature: float = Field(default=0.0, ge=0, le=2)
     llm_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     provider_max_retries: int = Field(default=2, ge=0, le=5)

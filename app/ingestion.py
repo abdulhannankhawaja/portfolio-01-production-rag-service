@@ -2,6 +2,7 @@ import hashlib
 import io
 import re
 import zipfile
+import zlib
 from pathlib import Path
 from typing import Any
 
@@ -9,12 +10,14 @@ import pymupdf
 from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
 from lxml.etree import XMLSyntaxError
+from pptx import Presentation
+from pptx.exc import PackageNotFoundError as PptxPackageNotFoundError
 
 
 MAX_PAGES = 300
 MAX_CHARS = 1_500_000
-MAX_DOCX_MEMBERS = 5_000
-MAX_DOCX_UNCOMPRESSED_BYTES = 20_000_000
+MAX_OFFICE_MEMBERS = 5_000
+MAX_OFFICE_UNCOMPRESSED_BYTES = 20_000_000
 
 
 def sha256_bytes(content: bytes) -> str:
@@ -40,25 +43,35 @@ def extract_pdf(content: bytes) -> list[tuple[int, str]]:
     return pages
 
 
-def _validate_docx_archive(content: bytes) -> None:
+def _validate_office_archive(
+    content: bytes,
+    required_members: set[str],
+    file_type: str,
+) -> None:
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             members = archive.infolist()
-            if len(members) > MAX_DOCX_MEMBERS:
-                raise ValueError("DOCX archive contains too many files")
-            if sum(member.file_size for member in members) > MAX_DOCX_UNCOMPRESSED_BYTES:
-                raise ValueError("DOCX archive expands beyond the supported size")
+            if len(members) > MAX_OFFICE_MEMBERS:
+                raise ValueError(f"{file_type} archive contains too many files")
+            if sum(member.file_size for member in members) > MAX_OFFICE_UNCOMPRESSED_BYTES:
+                raise ValueError(f"{file_type} archive expands beyond the supported size")
             if any(member.flag_bits & 0x1 for member in members):
-                raise ValueError("Encrypted DOCX files are not supported")
-            names = {member.filename for member in members}
-            if "[Content_Types].xml" not in names or "word/document.xml" not in names:
-                raise ValueError("Invalid DOCX file")
-    except zipfile.BadZipFile as exc:
-        raise ValueError("Invalid DOCX file") from exc
+                raise ValueError(f"Encrypted {file_type} files are not supported")
+            names = [member.filename for member in members]
+            if len(set(names)) != len(names) or not required_members.issubset(names):
+                raise ValueError(f"Invalid {file_type} file")
+            if archive.testzip() is not None:
+                raise ValueError(f"Invalid {file_type} file")
+    except (zipfile.BadZipFile, OSError, RuntimeError, EOFError, zlib.error) as exc:
+        raise ValueError(f"Invalid {file_type} file") from exc
 
 
 def extract_docx(content: bytes) -> list[tuple[None, str, str]]:
-    _validate_docx_archive(content)
+    _validate_office_archive(
+        content,
+        {"[Content_Types].xml", "word/document.xml"},
+        "DOCX",
+    )
     try:
         document = Document(io.BytesIO(content))
     except (
@@ -87,12 +100,76 @@ def extract_docx(content: bytes) -> list[tuple[None, str, str]]:
     return sections
 
 
+def extract_pptx(content: bytes) -> list[tuple[int, str, None]]:
+    _validate_office_archive(
+        content,
+        {"[Content_Types].xml", "ppt/presentation.xml"},
+        "PPTX",
+    )
+    try:
+        presentation = Presentation(io.BytesIO(content))
+        slide_count = len(presentation.slides)
+    except (
+        zipfile.BadZipFile,
+        KeyError,
+        PptxPackageNotFoundError,
+        ValueError,
+        UnicodeDecodeError,
+        XMLSyntaxError,
+    ) as exc:
+        raise ValueError("Invalid PPTX file") from exc
+    if slide_count > MAX_PAGES:
+        raise ValueError("PPTX has too many slides")
+
+    try:
+        slides: list[tuple[int, str, None]] = []
+        for number, slide in enumerate(presentation.slides, start=1):
+            slide_text = []
+            for shape in slide.shapes:
+                if shape.has_text_frame and shape.text.strip():
+                    slide_text.append(shape.text.strip())
+                if shape.has_table:
+                    for row in shape.table.rows:
+                        row_text = " | ".join(cell.text.strip() for cell in row.cells)
+                        if row_text.strip(" |"):
+                            slide_text.append(row_text)
+            if slide_text:
+                slides.append((number, "\n".join(slide_text), None))
+    except (
+        zipfile.BadZipFile,
+        KeyError,
+        ValueError,
+        UnicodeDecodeError,
+        XMLSyntaxError,
+    ) as exc:
+        raise ValueError("Invalid PPTX file") from exc
+    return slides
+
+
+def extract_plain_text(content: bytes) -> list[tuple[None, str, None]]:
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError("Text files must use UTF-8 encoding") from exc
+    if any(
+        (ord(character) < 32 and character not in "\t\n\r\f")
+        or ord(character) == 127
+        for character in text
+    ):
+        raise ValueError("Text file contains unsupported control characters")
+    return [(None, text, None)] if text.strip() else []
+
+
 def extract_text(content: bytes, filename: str) -> list[tuple]:
     suffix = Path(filename).suffix.lower()
     if suffix == ".pdf":
         return extract_pdf(content)
     if suffix == ".docx":
         return extract_docx(content)
+    if suffix == ".pptx":
+        return extract_pptx(content)
+    if suffix in {".txt", ".md"}:
+        return extract_plain_text(content)
     raise ValueError("Unsupported file type")
 
 

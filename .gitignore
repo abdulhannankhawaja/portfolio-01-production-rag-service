@@ -226,3 +226,8 @@ __pycache__/
 .pytest_cache/
 data/
 *.py[cod]
+
+# Vite production output (source is maintained under frontend/)
+app/static/assets/
+app/static/favicon.svg
+app/static/icons.svg

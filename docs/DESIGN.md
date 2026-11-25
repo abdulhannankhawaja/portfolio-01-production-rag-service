@@ -14,7 +14,12 @@ and tests:
 - `app/guardrails.py` validates questions, checks citations, and scans output.
 - `app/services.py` coordinates operations and maps failures to safe service
   errors.
-- `app/main.py` defines thin FastAPI routes, request logging, and rate limiting.
+- `app/auth.py` owns user persistence, password hashing, and JWT helpers.
+- `app/observability.py` stores local request traces and aggregate metrics.
+- `app/main.py` wires the app, authentication dependencies, FastAPI routes,
+  request logging, and per-process rate limiting.
+- `frontend/src/` contains the React UI; Vite builds it into `app/static/` for
+  FastAPI to serve.
 
 Blocking parsing, embedding, database, and model operations run in FastAPI's
 worker thread pool rather than on the async event loop.
@@ -22,11 +27,11 @@ worker thread pool rather than on the async event loop.
 ### Upload flow
 
 ```text
-PDF/DOCX request
+PDF/DOCX/TXT/MD/PPTX request
   -> size/extension checks
-  -> PDF signature or DOCX ZIP structure and expansion checks
+  -> format-specific signature, encoding, archive, and expansion checks
   -> SHA-256 duplicate check
-  -> PyMuPDF page extraction or DOCX paragraphs/headings/tables
+  -> page, slide, paragraph, heading, table, or plain-text extraction
   -> tokenizer-aware chunks with source metadata
   -> embed all chunks
   -> SQLite PENDING record
@@ -39,6 +44,12 @@ recovery pass removes leftover PENDING records and vectors. This is a
 best-effort lifecycle across SQLite and Chroma, **not an atomic distributed
 transaction**. The original upload bytes are not retained, so delete removes
 the registry row and all indexed vectors.
+
+Supported formats are PDF, DOCX, TXT, Markdown, and PPTX. PDF pages and PPTX
+slides retain numeric source locations; DOCX headings are retained as section
+metadata. Scanned PDFs have no OCR support. Office ZIP archives are bounded
+and integrity-checked; plain text must be UTF-8. These checks reject malformed
+or structurally invalid input but are not malware scanning.
 
 ### Question flow
 
@@ -67,23 +78,24 @@ to every prompt injection or establish semantic truth.
 The checked-in evaluation corpus is two official NIST PDFs: the AI Risk
 Management Framework 1.0 and Generative AI Profile. They provide focused,
 legally reusable public policy content with page-level evidence. They are a
-small, narrow corpus and do not test mixed formats or broad subject coverage.
-There is no user-provided real DOCX evaluation document in the repository;
-DOCX upload is currently tested with generated test fixtures only. Do not treat
-the existing corpus labels or reference answers as user-reviewed.
+small, narrow corpus and do not test broad subject coverage or PPTX/TXT/MD
+retrieval. DOCX, PPTX, TXT, and Markdown upload are tested with generated
+fixtures, but there is no user-provided real DOCX evaluation document. Do not
+treat the existing corpus labels or reference answers as user-reviewed.
 
 ### Text extraction and file validation
 
 - **Chosen:** PyMuPDF for page-aware PDF text; `python-docx` for DOCX paragraphs,
-  active heading labels, and tables flattened into row text.
+  heading labels, and tables flattened into row text; `python-pptx` for slide
+  text and tables; strict UTF-8 decoding for TXT and Markdown.
 - **Rejected:** OCR for scanned PDFs and complex layout/table reconstruction;
   they add runtime/model dependencies and were not needed for this small
   text-first corpus.
 - **Trade-off:** local extraction has no per-request API charge and preserves
-  PDF pages, but complex columns, headers/footers, and table relationships may
-  be imperfect. Scanned/empty PDFs and encrypted files are rejected rather than
-  assigned invented page text. DOCX has archive member/expanded-size limits;
-  tables lose cell structure when flattened.
+  PDF pages/PPTX slides, but complex columns, headers/footers, and table
+  relationships may be imperfect. Scanned/empty PDFs and encrypted files are
+  rejected rather than assigned invented page text. Office archives have
+  member/expanded-size limits; tables lose cell structure when flattened.
 
 ### Chunking
 
@@ -162,11 +174,14 @@ the existing corpus labels or reference answers as user-reviewed.
 
 | Route | Purpose | Success |
 |---|---|---|
-| `POST /documents` | Validate and ingest PDF/DOCX; duplicate hashes rejected | 201 |
+| `POST /documents` | Validate and ingest supported formats; duplicate hashes rejected | 201 |
 | `GET /documents` | List ready document metadata | 200 |
 | `GET /documents/{id}` | Fetch one document's metadata | 200 |
 | `DELETE /documents/{id}` | Delete vectors and registry row | 204 |
 | `POST /questions` | Return answer, citations, and retrieved chunks | 200 |
+| `POST /auth/signup` | Create an account with an Argon2id password hash | 201 |
+| `POST /auth/login` | Authenticate and issue a signed bearer token | 200 |
+| `GET /observability` | Get local metrics and recent request traces | 200 |
 | `GET /health` | Process liveness | 200 |
 
 `/ask` remains as an undocumented compatibility alias. Errors use consistent
@@ -187,13 +202,17 @@ includes its rank, source, text, stable ID, and cosine similarity.
   semantic confidence measure.
 - Retrieved file text is untrusted. Gemini output must match the JSON schema and
   cite only retrieved IDs; local extraction does not execute document text.
+- Document ownership is enforced for list, get, delete, and retrieval APIs.
+  Passwords are stored as Argon2id hashes and access tokens are signed JWTs.
 - Secret values are checked in generated answers. This scan does not detect
   every transformed, encoded, or partial leak.
 - Citation-ID checks and lexical overlap do not prove answer correctness,
   faithfulness, or that every sentence is supported. Human review remains
   necessary.
+- Upload checks are not a substitute for antivirus or general malware scanning.
 - In-memory rate limiting is per process/IP and does not coordinate multiple
-  workers. There is no authentication or per-user data isolation.
+  workers. Local SQLite/Chroma storage is single-instance, not a distributed
+  deployment.
 
 ## Evaluation and testing
 

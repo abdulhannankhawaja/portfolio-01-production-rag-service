@@ -90,16 +90,52 @@ class VectorStore:
                 """
                 CREATE TABLE IF NOT EXISTS documents (
                     document_id TEXT PRIMARY KEY,
+                    owner_id TEXT,
                     file_name TEXT NOT NULL,
-                    sha256_hash TEXT NOT NULL UNIQUE,
+                    sha256_hash TEXT NOT NULL,
                     file_type TEXT NOT NULL,
                     file_size_bytes INTEGER NOT NULL,
                     chunk_count INTEGER NOT NULL,
                     status TEXT NOT NULL CHECK (status IN ('PENDING', 'READY')),
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(owner_id, sha256_hash)
                 )
                 """
             )
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(documents)")
+            }
+            if "owner_id" not in columns:
+                connection.execute("ALTER TABLE documents RENAME TO documents_legacy")
+                connection.execute(
+                    """
+                    CREATE TABLE documents (
+                        document_id TEXT PRIMARY KEY,
+                        owner_id TEXT,
+                        file_name TEXT NOT NULL,
+                        sha256_hash TEXT NOT NULL,
+                        file_type TEXT NOT NULL,
+                        file_size_bytes INTEGER NOT NULL,
+                        chunk_count INTEGER NOT NULL,
+                        status TEXT NOT NULL CHECK (status IN ('PENDING', 'READY')),
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(owner_id, sha256_hash)
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    INSERT INTO documents (
+                        document_id, owner_id, file_name, sha256_hash, file_type,
+                        file_size_bytes, chunk_count, status, created_at
+                    )
+                    SELECT document_id, NULL, file_name, sha256_hash, file_type,
+                           file_size_bytes, chunk_count, status, created_at
+                    FROM documents_legacy
+                    """
+                )
+                connection.execute("DROP TABLE documents_legacy")
 
     def _delete_vectors(self, document_id: str) -> None:
         self.collection.delete(where={"document_id": document_id})
@@ -195,16 +231,20 @@ class VectorStore:
             )
         return embeddings
 
-    def has_hash(self, sha256: str) -> bool:
+    def has_hash(self, sha256: str, owner_id: str) -> bool:
         with self._connect() as connection:
             return connection.execute(
-                "SELECT 1 FROM documents WHERE sha256_hash = ? LIMIT 1",
-                (sha256,),
+                """
+                SELECT 1 FROM documents
+                WHERE sha256_hash = ? AND owner_id = ? LIMIT 1
+                """,
+                (sha256, owner_id),
             ).fetchone() is not None
 
     def add_document(
         self,
         document_id: str,
+        owner_id: str,
         sha256: str,
         filename: str,
         chunks: list[dict],
@@ -212,7 +252,7 @@ class VectorStore:
     ) -> None:
         if not chunks:
             raise ValueError("Document has no extractable text")
-        if self.has_hash(sha256):
+        if self.has_hash(sha256, owner_id):
             raise DuplicateDocumentError("This document has already been uploaded")
 
         embeddings = self.embed([chunk["text"] for chunk in chunks])
@@ -222,6 +262,7 @@ class VectorStore:
             metadata = {
                 "chunk_id": chunk_id,
                 "document_id": document_id,
+                "owner_id": owner_id,
                 "file_name": filename,
                 "sha256": sha256,
                 "chunk_position": int(chunk["chunk_index"]),
@@ -238,12 +279,13 @@ class VectorStore:
                 connection.execute(
                     """
                     INSERT INTO documents (
-                        document_id, file_name, sha256_hash, file_type,
+                        document_id, owner_id, file_name, sha256_hash, file_type,
                         file_size_bytes, chunk_count, status
-                    ) VALUES (?, ?, ?, ?, ?, ?, 'PENDING')
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')
                     """,
                     (
                         document_id,
+                        owner_id,
                         filename,
                         sha256,
                         Path(filename).suffix.lower().lstrip("."),
@@ -288,38 +330,41 @@ class VectorStore:
                 ) from cleanup_error
             raise
 
-    def list_document_ids(self) -> list[str]:
+    def list_document_ids(self, owner_id: str) -> list[str]:
         with self._connect() as connection:
             return [
                 row["document_id"]
                 for row in connection.execute(
                     "SELECT document_id FROM documents "
-                    "WHERE status = 'READY' ORDER BY created_at, document_id"
+                    "WHERE status = 'READY' AND owner_id = ? "
+                    "ORDER BY created_at, document_id",
+                    (owner_id,),
                 )
             ]
 
-    def get_document(self, document_id: str) -> dict:
+    def get_document(self, document_id: str, owner_id: str) -> dict:
         with self._connect() as connection:
             row = connection.execute(
                 """
                 SELECT file_name, sha256_hash, chunk_count, file_size_bytes
                 FROM documents
-                WHERE document_id = ? AND status = 'READY'
+                WHERE document_id = ? AND owner_id = ? AND status = 'READY'
                 """,
-                (document_id,),
+                (document_id, owner_id),
             ).fetchone()
         if row is None:
             return {}
         return {
             "document_id": document_id,
+            "owner_id": owner_id,
             "filename": row["file_name"],
             "sha256": row["sha256_hash"],
             "chunk_count": row["chunk_count"],
             "size_bytes": row["file_size_bytes"],
         }
 
-    def delete_document(self, document_id: str) -> bool:
-        if not self.get_document(document_id):
+    def delete_document(self, document_id: str, owner_id: str) -> bool:
+        if not self.get_document(document_id, owner_id):
             return False
         self._delete_vectors(document_id)
         with self._connect() as connection:
@@ -329,12 +374,17 @@ class VectorStore:
             )
         return True
 
-    def query(self, question: str, top_k: int) -> list[dict]:
+    def query(self, question: str, top_k: int, owner_id: str) -> list[dict]:
         embedding = self.embed([question], is_query=True)[0]
         result = self.collection.query(
             query_embeddings=[embedding],
             n_results=top_k,
-            where={"status": "READY"},
+            where={
+                "$and": [
+                    {"status": "READY"},
+                    {"owner_id": owner_id},
+                ]
+            },
             include=["documents", "metadatas", "distances"],
         )
         document_ids = {
@@ -349,8 +399,9 @@ class VectorStore:
                 row["document_id"]
                 for row in connection.execute(
                     f"SELECT document_id FROM documents "
-                    f"WHERE status = 'READY' AND document_id IN ({placeholders})",
-                    tuple(document_ids),
+                    f"WHERE status = 'READY' AND owner_id = ? "
+                    f"AND document_id IN ({placeholders})",
+                    (owner_id, *document_ids),
                 )
             }
         chunks = []

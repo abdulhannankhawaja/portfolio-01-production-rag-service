@@ -1,36 +1,14 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Production RAG</title>
-  <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-  <main>
-    <h1>NIST Production RAG</h1>
-    <section>
-      <h2>Documents</h2>
-      <form id="upload-form">
-        <input id="file" type="file" accept=".pdf,.docx" required>
-        <button type="submit">Upload</button>
-      </form>
-      <ul id="documents"></ul>
-    </section>
-    <section>
-      <h2>Ask a question</h2>
-      <form id="ask-form">
-        <textarea id="question" maxlength="2000" required></textarea>
-        <button id="ask-button" type="submit">Ask</button>
-      </form>
-      <div id="answer"></div>
-      <h3>Citations</h3>
-      <ol id="citations"></ol>
-      <h3>Retrieved chunks</h3>
-      <p id="chunk-count">No retrieval yet.</p>
-      <div id="chunks"></div>
-    </section>
-  </main>
-  <script src="/static/app.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NIST Production RAG</title>
+    <script type="module" crossorigin src="/static/assets/index-DyIiwCP1.js"></script>
+    <link rel="stylesheet" crossorigin href="/static/assets/index-DBDNO8xy.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>

@@ -1,4 +1,5 @@
 import uuid
+from contextlib import nullcontext
 from pathlib import Path
 
 from app.config import Settings
@@ -11,6 +12,7 @@ from app.generation import (
 )
 from app.guardrails import contains_sensitive_output, is_grounded, validate_question
 from app.ingestion import extract_text, sha256_bytes, split_text
+from app.observability import Observability
 from app.schemas import Citation, DocumentOut, QuestionResponse
 from app.storage import (
     DuplicateDocumentError,
@@ -41,15 +43,30 @@ def _document_response(document_id: str, item: dict) -> DocumentOut:
 class RAGService:
     """Coordinate upload, retrieval, generation, and response validation."""
 
-    def __init__(self, store: VectorStore, generator: Generator, settings: Settings):
+    def __init__(
+        self,
+        store: VectorStore,
+        generator: Generator,
+        settings: Settings,
+        telemetry: Observability | None = None,
+    ):
         self.store = store
         self.generator = generator
         self.settings = settings
+        self.telemetry = telemetry
 
-    def upload_document(self, filename: str, content: bytes) -> DocumentOut:
+    def upload_document(
+        self,
+        owner_id: str,
+        filename: str,
+        content: bytes,
+    ) -> DocumentOut:
         suffix = Path(filename).suffix.lower()
-        if suffix not in {".pdf", ".docx"}:
-            raise ServiceError(415, "Only PDF and DOCX files are supported")
+        if suffix not in {".pdf", ".docx", ".txt", ".md", ".pptx"}:
+            raise ServiceError(
+                415,
+                "Only PDF, DOCX, TXT, MD, and PPTX files are supported",
+            )
         if not content:
             raise ServiceError(400, "Uploaded file is empty")
         max_bytes = self.settings.max_upload_mb * 1024 * 1024
@@ -58,7 +75,7 @@ class RAGService:
 
         sha256 = sha256_bytes(content)
         try:
-            if self.store.has_hash(sha256):
+            if self.store.has_hash(sha256, owner_id):
                 raise ServiceError(409, "This document has already been uploaded")
             pages = extract_text(content, filename)
             tokenizer = (
@@ -77,6 +94,7 @@ class RAGService:
             document_id = str(uuid.uuid4())
             self.store.add_document(
                 document_id,
+                owner_id,
                 sha256,
                 filename,
                 chunks,
@@ -102,45 +120,63 @@ class RAGService:
             sha256=sha256,
         )
 
-    def list_documents(self) -> list[DocumentOut]:
+    def list_documents(self, owner_id: str) -> list[DocumentOut]:
         try:
             documents = []
-            for document_id in self.store.list_document_ids():
-                item = self.store.get_document(document_id)
+            for document_id in self.store.list_document_ids(owner_id):
+                item = self.store.get_document(document_id, owner_id)
                 if item:
                     documents.append(_document_response(document_id, item))
             return documents
         except Exception as exc:
             raise ServiceError(503, "Document registry is unavailable") from exc
 
-    def get_document(self, document_id: str) -> DocumentOut:
+    def get_document(self, document_id: str, owner_id: str) -> DocumentOut:
         try:
-            item = self.store.get_document(document_id)
+            item = self.store.get_document(document_id, owner_id)
         except Exception as exc:
             raise ServiceError(503, "Document registry is unavailable") from exc
         if not item:
             raise ServiceError(404, "Document not found")
         return _document_response(document_id, item)
 
-    def delete_document(self, document_id: str) -> None:
+    def delete_document(self, document_id: str, owner_id: str) -> None:
         try:
-            deleted = self.store.delete_document(document_id)
+            deleted = self.store.delete_document(document_id, owner_id)
         except Exception as exc:
             raise ServiceError(503, "Document deletion is incomplete") from exc
         if not deleted:
             raise ServiceError(404, "Document not found")
 
-    def ask(self, question: str, top_k: int | None = None) -> QuestionResponse:
+    def ask(
+        self,
+        question: str,
+        top_k: int | None,
+        owner_id: str,
+    ) -> QuestionResponse:
         try:
             question = validate_question(question, self.settings.max_question_chars)
         except ValueError as exc:
             raise ServiceError(400, str(exc)) from exc
 
         try:
-            retrieved = self.store.query(
-                question,
-                top_k or self.settings.top_k,
+            retrieval_span = (
+                self.telemetry.span(
+                    "retrieval",
+                    {
+                        "top_k": top_k or self.settings.top_k,
+                        "embedding_provider": self.settings.embedding_provider,
+                    },
+                )
+                if self.telemetry
+                else nullcontext()
             )
+            with retrieval_span:
+                retrieved = self.store.query(
+                    question,
+                    top_k or self.settings.top_k,
+                    owner_id,
+                )
         except EmbeddingRateLimitError as exc:
             raise ServiceError(429, "Embedding provider rate limit exceeded") from exc
         except Exception as exc:
@@ -154,12 +190,40 @@ class RAGService:
             }
             for rank, chunk in enumerate(retrieved, start=1)
         ]
-        eligible = [
-            chunk for chunk in fetched
-            if self.settings.min_retrieval_score is None
-            or chunk["score"] >= self.settings.min_retrieval_score
-        ]
+        if self.telemetry:
+            with self.telemetry.span(
+                "reranking",
+                {"enabled": False, "strategy": "vector_similarity_order"},
+            ) as span:
+                span.skip("No separate reranker is configured")
+            score_filter_span = self.telemetry.span(
+                "score_filter",
+                {"minimum_score": self.settings.min_retrieval_score},
+            )
+        else:
+            score_filter_span = nullcontext()
+        with score_filter_span:
+            eligible = [
+                chunk for chunk in fetched
+                if self.settings.min_retrieval_score is None
+                or chunk["score"] >= self.settings.min_retrieval_score
+            ]
+        if self.telemetry:
+            self.telemetry.set_question_metrics(
+                input_tokens=None,
+                output_tokens=None,
+                token_source="unavailable",
+                cost_usd=0.0 if not self.generator.api_key else None,
+                model="refusal" if not eligible else self.generator.model,
+                retrieved_chunks=len(fetched),
+            )
         if not eligible:
+            if self.telemetry:
+                with self.telemetry.span(
+                    "llm_call",
+                    {"provider": "not_called", "reason": "no_chunks_above_threshold"},
+                ) as span:
+                    span.skip("No retrieved chunks passed the score threshold")
             return self._response(
                 REFUSAL_TEXT,
                 [],
@@ -170,11 +234,33 @@ class RAGService:
             )
 
         try:
-            generated: GenerationResult = self.generator.generate(question, eligible)
+            generation_span = (
+                self.telemetry.span(
+                    "llm_call" if self.generator.api_key else "extractive_generation",
+                    {
+                        "provider": "gemini" if self.generator.api_key else "local",
+                        "model": self.generator.model,
+                        "retrieved_chunks": len(eligible),
+                    },
+                )
+                if self.telemetry
+                else nullcontext()
+            )
+            with generation_span:
+                generated: GenerationResult = self.generator.generate(question, eligible)
         except GenerationRateLimitError as exc:
             raise ServiceError(429, "LLM rate limit exceeded") from exc
         except Exception as exc:
             raise ServiceError(503, "Answer generation is unavailable") from exc
+        if self.telemetry:
+            self.telemetry.set_question_metrics(
+                input_tokens=generated.input_tokens,
+                output_tokens=generated.output_tokens,
+                token_source=generated.token_source,
+                cost_usd=generated.cost_usd,
+                model=generated.model,
+                retrieved_chunks=len(fetched),
+            )
 
         retrieved_by_id = {chunk["chunk_id"]: chunk for chunk in eligible}
         if any(chunk_id not in retrieved_by_id for chunk_id in generated.cited_chunk_ids):

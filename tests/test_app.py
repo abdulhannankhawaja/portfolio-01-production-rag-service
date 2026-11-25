@@ -6,14 +6,45 @@ import pytest
 import httpx
 from docx import Document
 from fastapi.testclient import TestClient
+from pptx import Presentation
 
 from app import main as app_module
 from app.main import RequestRateLimiter, app
 from app.generation import GenerationResult, REFUSAL_TEXT
+from app.auth import UserStore, create_access_token
+from app.observability import Observability
 from app.storage import VectorStore
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def isolate_observability_storage(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        app_module,
+        "observability",
+        Observability(tmp_path / "observability.sqlite3"),
+    )
+    users = UserStore(tmp_path / "users.sqlite3")
+    test_user = users.create_user("testuser", "test-password-123")
+    signing_key = "test-signing-key-that-is-at-least-32-bytes"
+    monkeypatch.setattr(app_module, "user_store", users)
+    monkeypatch.setattr(app_module.settings, "jwt_secret_key", signing_key)
+    monkeypatch.setattr(
+        app_module,
+        "rate_limiter",
+        RequestRateLimiter(app_module.settings.max_requests_per_minute),
+    )
+    previous_auth = client.headers.get("Authorization")
+    client.headers["Authorization"] = (
+        "Bearer " + create_access_token(test_user["user_id"], signing_key, 60)
+    )
+    yield
+    if previous_auth is None:
+        client.headers.pop("Authorization", None)
+    else:
+        client.headers["Authorization"] = previous_auth
 
 
 class InMemoryStore:
@@ -21,11 +52,15 @@ class InMemoryStore:
         self.documents = {}
         self.query_results = []
 
-    def has_hash(self, sha256):
-        return any(document["sha256"] == sha256 for document in self.documents.values())
+    def has_hash(self, sha256, owner_id):
+        return any(
+            document["sha256"] == sha256 and document["owner_id"] == owner_id
+            for document in self.documents.values()
+        )
 
-    def add_document(self, document_id, sha256, filename, chunks, size_bytes):
+    def add_document(self, document_id, owner_id, sha256, filename, chunks, size_bytes):
         self.documents[document_id] = {
+            "owner_id": owner_id,
             "filename": filename,
             "sha256": sha256,
             "chunk_count": len(chunks),
@@ -33,32 +68,43 @@ class InMemoryStore:
             "size_bytes": size_bytes,
         }
 
-    def list_document_ids(self):
-        return list(self.documents)
+    def list_document_ids(self, owner_id):
+        return [
+            document_id
+            for document_id, document in self.documents.items()
+            if document["owner_id"] == owner_id
+        ]
 
-    def get_document(self, document_id):
+    def get_document(self, document_id, owner_id):
         document = self.documents.get(document_id)
-        if not document:
+        if not document or document["owner_id"] != owner_id:
             return {}
         return {
+            "owner_id": document["owner_id"],
             "filename": document["filename"],
             "sha256": document["sha256"],
             "chunk_count": document["chunk_count"],
             "size_bytes": document["size_bytes"],
         }
 
-    def delete_document(self, document_id):
-        return self.documents.pop(document_id, None) is not None
+    def delete_document(self, document_id, owner_id):
+        document = self.documents.get(document_id)
+        if not document or document["owner_id"] != owner_id:
+            return False
+        self.documents.pop(document_id)
+        return True
 
-    def query(self, question, top_k):
+    def query(self, question, top_k, owner_id):
         return self.query_results[:top_k]
 
 
 class LocalRetrievalStore(InMemoryStore):
-    def query(self, question, top_k):
+    def query(self, question, top_k, owner_id):
         question_terms = set(re.findall(r"\w+", question.casefold()))
         ranked = []
         for document_id, document in self.documents.items():
+            if document["owner_id"] != owner_id:
+                continue
             for chunk in document["chunks"]:
                 chunk_terms = set(re.findall(r"\w+", chunk["text"].casefold()))
                 overlap = question_terms & chunk_terms
@@ -98,16 +144,147 @@ def make_docx():
     return content.getvalue()
 
 
+def make_pptx():
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    text_box = slide.shapes.add_textbox(0, 0, 4_000_000, 1_000_000)
+    text_box.text = "Presentation risk management contents."
+    content = io.BytesIO()
+    presentation.save(content)
+    return content.getvalue()
+
+
 def test_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
+def test_document_question_and_metrics_routes_require_authentication():
+    unauthenticated = {"Authorization": ""}
+    assert client.get("/documents", headers=unauthenticated).status_code == 401
+    assert client.post(
+        "/questions",
+        json={"question": "What is in my documents?"},
+        headers=unauthenticated,
+    ).status_code == 401
+    assert client.get("/observability", headers=unauthenticated).status_code == 401
+
+
+def test_signup_hashes_password_and_login_returns_bearer_token():
+    unauthenticated = {"Authorization": ""}
+    password = "correct-horse-battery"
+    signup = client.post(
+        "/auth/signup",
+        json={"username": "alice", "password": password},
+        headers=unauthenticated,
+    )
+
+    assert signup.status_code == 201
+    with app_module.user_store._connect() as connection:
+        password_hash = connection.execute(
+            "SELECT password_hash FROM users WHERE username = 'alice'"
+        ).fetchone()["password_hash"]
+    assert password_hash != password
+    assert password_hash.startswith("$argon2id$")
+    assert client.post(
+        "/auth/signup",
+        json={"username": "ALICE", "password": password},
+        headers=unauthenticated,
+    ).status_code == 409
+
+    wrong_password = client.post(
+        "/auth/login",
+        json={"username": "alice", "password": "wrong-password"},
+        headers=unauthenticated,
+    )
+    assert wrong_password.status_code == 401
+    login = client.post(
+        "/auth/login",
+        json={"username": "ALICE", "password": password},
+        headers=unauthenticated,
+    )
+
+    assert login.status_code == 200
+    result = login.json()
+    assert result["token_type"] == "bearer"
+    assert result["expires_in"] > 0
+    documents = client.get(
+        "/documents",
+        headers={"Authorization": f"Bearer {result['access_token']}"},
+    )
+    assert documents.status_code == 200
+
+
+def test_users_only_list_search_and_delete_their_own_documents(tmp_path, monkeypatch):
+    store = VectorStore(
+        tmp_path / "vectors",
+        "unused-test-model",
+        embedding_provider="cohere",
+        cohere_api_key="test-key",
+    )
+    store.get_tokenizer = lambda: None
+    store.embed = lambda texts, is_query=False: [
+        [1.0, 0.0] + [0.0] * 382 for _ in texts
+    ]
+    monkeypatch.setattr(app_module, "store", store)
+    monkeypatch.setattr(app_module.settings, "min_retrieval_score", None)
+    unauthenticated = {"Authorization": ""}
+    signup = client.post(
+        "/auth/signup",
+        json={"username": "alice", "password": "alice-password-123"},
+        headers=unauthenticated,
+    )
+    assert signup.status_code == 201
+    alice_login = client.post(
+        "/auth/login",
+        json={"username": "alice", "password": "alice-password-123"},
+        headers=unauthenticated,
+    ).json()
+    alice_headers = {"Authorization": f"Bearer {alice_login['access_token']}"}
+    bob_headers = {"Authorization": client.headers["Authorization"]}
+
+    alice_upload = client.post(
+        "/documents",
+        files={"file": ("alice.pdf", make_pdf("Alice's private account uses the blue risk framework."), "application/pdf")},
+        headers=alice_headers,
+    )
+    bob_upload = client.post(
+        "/documents",
+        files={"file": ("bob.pdf", make_pdf("Bob's private account uses the red risk framework."), "application/pdf")},
+        headers=bob_headers,
+    )
+    assert alice_upload.status_code == 201
+    assert bob_upload.status_code == 201
+    alice_id = alice_upload.json()["id"]
+    bob_id = bob_upload.json()["id"]
+
+    assert [doc["filename"] for doc in client.get("/documents", headers=alice_headers).json()] == ["alice.pdf"]
+    assert [doc["filename"] for doc in client.get("/documents", headers=bob_headers).json()] == ["bob.pdf"]
+    assert client.get(f"/documents/{alice_id}", headers=bob_headers).status_code == 404
+    assert client.delete(f"/documents/{alice_id}", headers=bob_headers).status_code == 404
+
+    alice_answer = client.post(
+        "/questions",
+        json={"question": "What color risk framework does Alice use?"},
+        headers=alice_headers,
+    )
+    bob_answer = client.post(
+        "/questions",
+        json={"question": "What color risk framework does Bob use?"},
+        headers=bob_headers,
+    )
+    assert alice_answer.status_code == bob_answer.status_code == 200
+    assert {item["filename"] for item in alice_answer.json()["retrieved_chunks"]} == {"alice.pdf"}
+    assert {item["filename"] for item in bob_answer.json()["retrieved_chunks"]} == {"bob.pdf"}
+    assert client.get(f"/documents/{alice_id}", headers=alice_headers).status_code == 200
+    assert client.delete(f"/documents/{bob_id}", headers=bob_headers).status_code == 204
+
+
 def test_frontend():
     response = client.get("/")
     assert response.status_code == 200
-    assert "NIST Production RAG" in response.text
+    assert '<div id="root"></div>' in response.text
 
 
 def test_rejects_empty_question():
@@ -135,7 +312,7 @@ def test_rejects_jailbreak_and_prompt_disclosure_attempts(question):
 def test_rejects_unsupported_upload():
     response = client.post(
         "/documents",
-        files={"file": ("notes.txt", b"hello", "text/plain")},
+        files={"file": ("notes.csv", b"hello", "text/csv")},
     )
     assert response.status_code == 415
 
@@ -170,6 +347,49 @@ def test_upload_docx(memory_store):
     chunks = memory_store.documents[response.json()["id"]]["chunks"]
     assert any(chunk["section"] == "Risk Management" for chunk in chunks)
     assert any("Organizations should govern AI risks." in chunk["text"] for chunk in chunks)
+
+
+@pytest.mark.parametrize(
+    ("filename", "content", "expected_text"),
+    [
+        ("notes.txt", b"Plain text document contents.", "Plain text"),
+        ("guide.md", b"# Risk Management\n\nMarkdown document contents.", "Markdown"),
+    ],
+)
+def test_upload_text_and_markdown(memory_store, filename, content, expected_text):
+    response = client.post(
+        "/documents",
+        files={"file": (filename, content, "text/plain")},
+    )
+
+    assert response.status_code == 201
+    result = response.json()
+    assert result["file_type"] == f".{filename.rsplit('.', 1)[1]}"
+    chunks = memory_store.documents[result["id"]]["chunks"]
+    assert expected_text in chunks[0]["text"]
+
+
+def test_upload_pptx_uses_slide_numbers(memory_store):
+    response = client.post(
+        "/documents",
+        files={"file": ("briefing.pptx", make_pptx(), "application/vnd.openxmlformats-officedocument.presentationml.presentation")},
+    )
+
+    assert response.status_code == 201
+    result = response.json()
+    chunks = memory_store.documents[result["id"]]["chunks"]
+    assert chunks[0]["page"] == 1
+    assert "Presentation risk management contents." in chunks[0]["text"]
+
+
+def test_upload_rejects_binary_text(memory_store):
+    response = client.post(
+        "/documents",
+        files={"file": ("binary.txt", b"\x00\x01\x02", "text/plain")},
+    )
+
+    assert response.status_code == 400
+    assert "control characters" in response.json()["detail"].lower()
 
 
 def test_upload_rejects_scanned_pdf(memory_store):
@@ -208,7 +428,12 @@ def test_upload_rejects_encrypted_pdf(memory_store):
 
 @pytest.mark.parametrize(
     ("filename", "content"),
-    [("broken.pdf", b"not a pdf"), ("broken.docx", b"not a docx")],
+    [
+        ("broken.pdf", b"not a pdf"),
+        ("corrupt.pdf", b"%PDF-1.7\nnot a valid PDF body"),
+        ("broken.docx", b"not a docx"),
+        ("broken.pptx", b"not a pptx"),
+    ],
 )
 def test_rejects_malformed_documents(memory_store, filename, content):
     response = client.post(
@@ -262,6 +487,47 @@ def test_ask_refuses_when_no_chunks_are_found(memory_store):
     assert response.json()["citations"] == []
 
 
+def test_ask_surfaces_contradictory_retrieved_passages(memory_store, monkeypatch):
+    memory_store.query_results = [
+        {
+            "chunk_id": "doc-a:0",
+            "text": "The policy allows remote access.",
+            "document_id": "doc-a",
+            "filename": "policy-a.txt",
+            "page": None,
+            "section": None,
+            "chunk_index": 0,
+            "score": 0.92,
+        },
+        {
+            "chunk_id": "doc-b:0",
+            "text": "The policy prohibits remote access.",
+            "document_id": "doc-b",
+            "filename": "policy-b.txt",
+            "page": None,
+            "section": None,
+            "chunk_index": 0,
+            "score": 0.91,
+        },
+    ]
+    monkeypatch.setattr(app_module, "generator", app_module.Generator(None, "local"))
+
+    response = client.post(
+        "/questions",
+        json={"question": "Does policy allow or prohibit remote access?"},
+    )
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["grounded"] is True
+    assert {citation["filename"] for citation in result["citations"]} == {
+        "policy-a.txt",
+        "policy-b.txt",
+    }
+    assert "allows remote access" in result["answer"]
+    assert "prohibits remote access" in result["answer"]
+
+
 def test_ask_returns_answer_and_citations(memory_store, monkeypatch):
     memory_store.query_results = [{
         "chunk_id": "doc-1:0",
@@ -300,6 +566,46 @@ def test_ask_returns_answer_and_citations(memory_store, monkeypatch):
     assert len(result["retrieved_chunks"]) == 1
     assert calls["question"] == "What is a core function?"
     assert len(calls["chunks"]) == 1
+
+
+def test_observability_endpoint_includes_rag_stage_trace(memory_store, monkeypatch):
+    memory_store.query_results = [{
+        "chunk_id": "doc-1:0",
+        "text": "NIST describes governance as a core function.",
+        "document_id": "doc-1",
+        "filename": "guide.pdf",
+        "page": 2,
+        "chunk_index": 0,
+        "score": 0.9,
+    }]
+    monkeypatch.setattr(app_module.settings, "min_retrieval_score", None)
+    monkeypatch.setattr(
+        app_module.generator,
+        "generate",
+        lambda question, chunks: GenerationResult(
+            "NIST describes governance as a core function.",
+            True,
+            ["doc-1:0"],
+            "extractive-local",
+            12,
+            8,
+            "estimated",
+            0.0,
+        ),
+    )
+
+    response = client.post("/questions", json={"question": "What is governance?"})
+    assert response.status_code == 200
+    trace_id = response.headers["X-Request-ID"]
+    report = client.get("/observability").json()
+    trace = next(item for item in report["traces"] if item["trace_id"] == trace_id)
+    spans = {span["name"]: span for span in trace["spans"]}
+
+    assert {"http_request", "retrieval", "reranking", "score_filter", "extractive_generation"} <= spans.keys()
+    assert spans["reranking"]["status"] == "skipped"
+    assert trace["input_tokens"] == 12
+    assert trace["output_tokens"] == 8
+    assert trace["token_source"] == "estimated"
 
 
 def test_ask_applies_configured_similarity_threshold(memory_store, monkeypatch):

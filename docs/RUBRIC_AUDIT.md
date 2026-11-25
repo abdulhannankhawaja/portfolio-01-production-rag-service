@@ -1,8 +1,8 @@
 # Rubric and Project-Prompt Audit
 
-**Audit date:** 2026-11-24
+**Audit date:** 2026-11-25
 
-**Evidence basis:** current repository, 48 focused automated tests, the
+**Evidence basis:** current repository, 75 passing automated tests, the
 executed `notebooks/pipeline.ipynb`, and the local evaluation run in
 [EVAL.md](./EVAL.md). Answer-side evaluation and saved notebook output predate
 the latest extractive-generator refinement and need refresh.
@@ -16,20 +16,20 @@ the feature is absent; **Not verified** means evidence is unavailable.
 
 | Item | Marks | Status | Evidence and remaining gap |
 |---|---:|---|---|
-| M1 Structure | 6 | Partially verified | `app/`, `tests/`, `eval/`, and `notebooks/` exist. Layout differs from the requested `frontend/`, `app/ingestion/`, and `evals/` paths; code is kept in `app/static/`, `app/ingestion.py`, and `eval/`. |
-| M2 Frontend | 8 | Partially verified | Vanilla HTML/CSS/JS supports upload, documents, questions, citations, and retrieved chunks. No genuine frontend/Swagger screenshots or demo-video walkthrough are included. |
+| M1 Structure | 6 | Partially verified | `app/`, `frontend/`, `tests/`, `eval/`, `docs/`, and `notebooks/` separate core concerns. The backend uses focused modules such as `app/ingestion.py`; it does not use the requested `app/ingestion/` package or `evals/` name. |
+| M2 Frontend | 8 | Partially verified | React/Vite UI supports account creation, sign-in, document upload/list/delete, questions, citations, retrieved chunks, and observability. Screenshot captures are supplied; a demo-video walkthrough is not. |
 | M3 DESIGN.md | 9 | Verified | [DESIGN.md](./DESIGN.md) documents component choices, trade-offs, data flows, grounding, score semantics, API, tests, and limitations. |
 | M4 API design | 4 | Verified | FastAPI routes and schemas are implemented; [tests/test_app.py](../tests/test_app.py) covers API behaviors, validation, and response fields. |
-| M5 Ingestion | 8 | Partially verified | PDF/DOCX extraction, validation, token-aware chunking, metadata, deduplication, lifecycle, and deletion are implemented and tested. The corpus contains PDFs only; no user-supplied DOCX has been evaluated. |
+| M5 Ingestion | 8 | Partially verified | PDF, DOCX, TXT, MD, and PPTX extraction, validation, token-aware chunking, metadata, deduplication, lifecycle, and deletion are implemented and tested. The evaluation corpus contains PDFs only; no user-supplied DOCX has been evaluated. |
 | M6 Grounded answers | 8 | Partially verified | API tests cover citation validation, refusal, and retrieved-chunk responses. The saved notebook output and answer-side evaluation predate the latest local extractor change; optional Gemini quality has not been measured. |
 | M7 Golden set and results | 12 | Partially verified | 25 cases and real retrieval/threshold results are in [eval/golden.json](../eval/golden.json) and [EVAL.md](./EVAL.md). Labels/reference terms have not been independently user-reviewed; broader question types and human answer grading are missing. |
 | M8 Evaluation frameworks and reproducibility | 8 | Partially verified | One command reproduces deterministic JSON/CSV results and compares two context-safe chunk sizes, changing only chunk size. RAGAS/Langfuse or a validated LLM judge, judge-human agreement, and quota-resume caching are absent. |
-| M9 Guardrails | 6 | Partially verified | Input checks, prompt-injection/jailbreak patterns, document validation, secret-output checks, grounding, and citation checks exist. Pattern matching is limited; malicious instructions inside an uploaded document are not covered by a demonstrated test/video. |
+| M9 Guardrails | 6 | Partially verified | Input checks, prompt-injection/jailbreak patterns, untrusted-document prompting, document validation, secret-output checks, grounding, and citation checks exist. Pattern matching is limited; malicious-file scanning and video evidence are absent. |
 | M10 Errors and status codes | 4 | Verified | Routes map validation, unsupported uploads, duplicates, size limits, provider failures, and rate limits to explicit HTTP responses; focused API tests exercise representative cases. |
-| M11 Testing | 6 | Partially verified | Focused suite: **48 passed**. Includes local Chroma/SQLite round trips and cleanup plus API, generation, and ingestion tests. Not every requested provider-timeout, in-document injection, and adversarial/concurrency scenario is covered. |
+| M11 Testing | 6 | Partially verified | Full suite: **75 passed**. Includes local Chroma/SQLite round trips and cleanup plus API, generation, ingestion, Unicode/table, timeout/rate-limit, contradiction, and concurrent storage tests. Not every provider/outage and adversarial scenario is covered. |
 | M12 Code quality | 6 | Partially verified | Settings, service layer, type annotations, pinned dependencies, and bounded timeouts/retries are present. No dedicated type-check/linter run or broader deployment-quality review is recorded. |
-| M13 Git | 4 | Partially verified | Work is on `feat/production-rag-service`, tracking `origin`. Changes remain uncommitted; the user-staged `.code-workspace` file is intentionally untouched. No feature-by-feature branch history or push is verified. |
-| M14 README, requirements, screenshots, AI docs | 3 | Partially verified | README, pinned `requirements.txt`, and [AI_USAGE.md](./AI_USAGE.md) exist. Genuine screenshots are absent; the complete chat export must be supplied by the user. |
+| M13 Git | 4 | Partially verified | This accumulated update is being prepared on a fresh `feat/rag-service-improvements` branch from `origin/main`, with a PR for review. The previous feedback's event/registration feature names refer to a different project and are not present here. For future work, keep each independently reviewable feature on its own branch/PR rather than retroactively rewriting merged history. |
+| M14 README, requirements, screenshots, AI docs | 3 | Partially verified | Step-by-step README, pinned `requirements.txt`, [AI_USAGE.md](./AI_USAGE.md), and a screenshot gallery exist. The complete chat export must still be supplied by the user, and screenshots should be checked against the current app before submission. |
 | M15 Demo video | 8 | Not verified | No demo video is present. |
 
 **Verified mandatory score only: 17 / 100** (M3 + M4 + M10). Partial or
@@ -39,16 +39,16 @@ unverified items receive no marks in this conservative total.
 
 | Item | Marks | Status | Evidence and remaining gap |
 |---|---:|---|---|
-| B1 JWT | 5 | Not implemented | No authentication or per-user data isolation. |
-| B2 Multilingual | 4 | Not implemented | No multilingual model/question evaluation or answer-language test. |
-| B3 Monitoring | 4 | Partially verified | Request ID, status, and latency logging exists. No p50/p95, token/cost, or operational dashboard report. |
-| B4 Modern frontend | 3 | Not implemented | The required plain HTML/CSS/JS frontend is used; no React/Next.js bonus. |
-| B5 Extra file types | 2 | Not implemented | PDF and DOCX are supported; no additional formats. |
-| B6 Document guardrails | 3 | Partially verified | PDF/DOCX structure, encrypted files, DOCX archive limits, and malformed inputs are checked. No full malicious-document campaign or video demonstration. |
-| B7 Edge cases | 4 | Partially verified | Tests cover duplicates, invalid/encrypted/scanned uploads, empty index, deletion, rate limits, and cleanup. Concurrency, contradiction handling, and video evidence remain. |
+| B1 JWT | 5 | Partially verified | Signup/login, Argon2id hashes, signed expiring JWTs, and owner-filtered document APIs are implemented and tested. Deployment hardening and broader security review remain. |
+| B2 Multilingual | 4 | Partially verified | Unicode extraction and local lexical matching have a Japanese question/answer test. The default E5 retrieval model is English-oriented; there is no multilingual retrieval model or evaluation set. |
+| B3 Monitoring | 4 | Partially verified | Local metrics dashboard, request IDs, spans, latency, errors, token/cost fields, and traces are implemented and tested. It is local telemetry, not a deployed monitoring stack. |
+| B4 Modern frontend | 3 | Partially verified | React/Vite frontend is implemented and builds/lints; deployment evidence is absent. |
+| B5 Extra file types | 2 | Verified | TXT, Markdown, and PPTX are supported in addition to PDF/DOCX, with upload/parser tests. |
+| B6 Document guardrails | 3 | Partially verified | Supported file formats receive structural, integrity, encoding, and size checks; malformed/encrypted cases are rejected. There is no antivirus/general malware scanner or comprehensive malicious-file campaign. |
+| B7 Edge cases | 4 | Partially verified | Tests cover duplicates, malformed/encrypted/scanned uploads, empty index, deletion, rate limits, Unicode/tables, contradictions, and concurrent storage operations. Real provider outage demonstration and the demo video remain. See [EDGE_CASES.md](./EDGE_CASES.md). |
 | B8 Deployment | 3 | Not implemented | No deployed service or verified host persistence/configuration. |
 
-**Verified bonus score: 0 / 28.**
+**Verified bonus score: 2 / 28.**
 
 ## Submission gate and critical work
 
@@ -67,11 +67,11 @@ Remaining work, in priority order:
    cross-passage, and negative cases; hand-grade at least ten answers.
 3. If an LLM judge is used, validate it against human grades and report
    disagreement; otherwise document the evidence-based reason for omitting it.
-4. Record genuine screenshots and the required demo video; do not fabricate
-   submission evidence.
-5. Commit reviewed project changes without including the pre-staged workspace
-   file, then push the branch from a GitHub-authenticated environment. This
-   environment has not pushed anything.
+4. Verify the supplied screenshot captures against the current build and record
+   the required demo video; do not fabricate submission evidence.
+5. Review and merge the new feature PR. Keep future changes in smaller
+   feature-specific PRs and retain the original exported AI chat history as a
+   separate submission artifact.
 
 No score is awarded for work that still depends on user review or absent
 submission artifacts. See [PROGRESS.md](./PROGRESS.md) for the current state.
