@@ -10,6 +10,15 @@ INJECTION_PATTERNS = (
 )
 
 
+def text_terms(text: str) -> set[str]:
+    words = re.findall(r"[^\W\d_]+", text.casefold(), flags=re.UNICODE)
+    terms = {word for word in words if len(word) >= 4}
+    for word in words:
+        if any(ord(character) > 127 for character in word):
+            terms.update(word[index:index + 2] for index in range(len(word) - 1))
+    return terms
+
+
 def validate_question(question: str, max_chars: int) -> str:
     question = question.strip()
     if not question:
@@ -28,12 +37,10 @@ def is_grounded(answer: str, chunks: list[dict]) -> bool:
     indices = {int(value) for value in re.findall(r"\[(\d+)\]", answer)}
     if not indices or any(index < 1 or index > len(chunks) for index in indices):
         return False
-    answer_words = set(re.findall(r"[A-Za-z]{4,}", answer.casefold()))
+    answer_words = text_terms(answer)
     context_words = set()
     for index in indices:
-        context_words.update(
-            re.findall(r"[A-Za-z]{4,}", chunks[index - 1]["text"].casefold())
-        )
+        context_words.update(text_terms(chunks[index - 1]["text"]))
     return bool(answer_words & context_words)
 
 

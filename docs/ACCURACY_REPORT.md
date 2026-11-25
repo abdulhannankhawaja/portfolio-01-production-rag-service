@@ -77,7 +77,7 @@ and `eval/results/latest.json`.
 
 ## Automated tests
 
-The most recent focused run after the extractor change reported **48 passed**. It covers API behavior,
+The most recent full test run reported **75 passed**. It covers API behavior,
 upload validation, local Chroma/SQLite lifecycle, fixed-vector round trips,
 similarity conversion, retrieval/generation validation, rate limiting, and
 ingestion edge cases. The offline evaluation is separate from tests and makes
@@ -98,7 +98,9 @@ or human validation of generated answers.
   judge-versus-human agreement are available.
 - The local baseline is not Gemini answer-quality evaluation. Provider
   availability, cost, terms, and quotas must be checked before live use.
-- Genuine screenshots, a demo video, and deployment evidence are absent.
+- Screenshot captures are supplied in the [gallery](./screenshots/README.md),
+  but should be checked against the current build. A demo video and deployment
+  evidence are absent.
 
 Do not present the numbers above as answer accuracy or claim that this project
 is submission-ready until these evidence gaps are addressed.
