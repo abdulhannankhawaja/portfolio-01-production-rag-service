@@ -3,105 +3,102 @@
 **Run date:** 2026-11-24
 **Project:** Production RAG Service
 **Evaluation command:** `python eval/run_evaluation.py`
-**Test command:** `pytest -q`
+**Test command:** `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q tests/test_app.py tests/test_evaluation.py tests/test_generation.py tests/test_storage.py tests/test_ingestion.py`
+
+> Retrieval results below remain valid for the current code. Answer/threshold
+> results are from immediately before the local extractor was changed to abstain
+> when no retrieved sentence matches and to prefer the strongest-overlap
+> sentences. Those answer-side values are stale and require a fresh evaluation.
 
 ## Executive summary
 
-The current evaluation does **not** measure end-to-end answer accuracy. It
-measures retrieval against a small source-page-labeled question set, lexical
-overlap between retrieved context and reference answers, and a low-score
-refusal proxy. No generated answers were scored for correctness or faithfulness.
-Therefore, a single answer-accuracy percentage cannot be reported honestly.
+This evaluation does **not** establish end-to-end answer accuracy. It measures
+retrieval against a small source-page-labeled set and runs a deterministic
+extractive baseline for lexical coverage, citation, and refusal proxies. It does
+not judge semantic correctness or faithfulness.
 
-The strongest directly interpretable retrieval result is **top-5 source-page
-Hit@5: 70% (14/20)** with 800/150 chunking, and **75% (15/20)** with
-500/100 chunking. These values are low enough that they should not be presented
-as answer accuracy.
-
-The current test suite passes **23 tests**. Those tests primarily use an
-in-memory document store and mocked generation; they verify API behaviors, not
-real-provider answer quality or a live upload-to-answer round trip.
+The latest evaluation contains 25 cases (20 answerable and 5 out of corpus)
+from two checked-in NIST PDFs. At top 5, source-page Hit@5 is **60% (12/20)**
+with 400/100 token chunking and **65% (13/20)** with 500/100. These are
+retrieval results, not answer-accuracy percentages.
 
 ## Evaluation setup
 
 - **Corpus:** `NIST_AI_RMF_1.0.pdf` and `NIST_Generative_AI_Profile.pdf`.
-- **Embedding:** `intfloat/e5-small-v2`, with E5 `passage:` and `query:` prefixes.
-- **Question set:** `eval/golden.json`, 25 questions: 20 answerable and 5
-  unanswerable.
-- **Configurations:** 800 characters / 150 overlap and 500 characters / 100
-  overlap. Chunking is the only changed variable.
+- **Embedding:** `intfloat/e5-small-v2`, normalized 384-dimensional vectors
+  with E5 query/passage prefixes.
+- **Question set:** `eval/golden.json`, 25 cases (20 answerable and 5
+  unanswerable). Evidence quotes are checked against the declared PDF page by
+  the runner; labels and reference terms have not been independently reviewed.
+- **Configurations:** 400 tokens / 100 overlap and 500 tokens / 100 overlap.
+  Chunk size is the only changed variable. Both settings fit the E5 model
+  context; the evaluation rejects passages that exceed it.
 - **Retrieval cutoff:** top 5.
-- **Compared pages:** for each answerable item, a hit means at least one of the
-  top five chunks came from the expected document and one of the listed pages.
-- **Reproduction:** run `python eval/run_evaluation.py` from the repository root.
+- **Reproduction:** `python eval/run_evaluation.py` from the repository root.
 
 ## Retrieval results
 
-| Metric | 800 / 150 | 500 / 100 |
+| Metric | 400 / 100 | 500 / 100 |
 |---|---:|---:|
-| Chunk count | 436 | 687 |
-| Top-5 source-page Hit@5 | 70.0% (14/20) | 75.0% (15/20) |
-| Page Recall@5 | 70.0% | 75.0% |
-| MRR@5 | 0.400 | 0.522 |
-| Local answer key-term coverage | 59.1% | 58.4% |
-| Relevant-page citation rate | 60.0% | 75.0% |
-| Unanswerable refusal without a threshold | 0% (0/5) | 0% (0/5) |
+| Chunk count | 776 | 359 |
+| Top-5 source-page Hit@5 | 60.0% (12/20) | 65.0% (13/20) |
+| Page Recall@5 | 60.0% | 65.0% |
+| MRR@5 | 0.442 | 0.493 |
 
-Page Recall@5 is the fraction of distinct labeled relevant pages found across
-the top five retrieved chunks. It does not count all relevant chunks and should
-not be treated as conventional recall over independently judged documents.
+Hit@5 is the fraction of answerable questions with at least one labeled
+document/page in the top five. Page Recall@5 is the number of distinct labeled
+source pages retrieved divided by the total labeled relevant source pages (20).
+MRR@5 is the mean reciprocal rank of the first matching page, with misses
+scored zero. Gold labels are script-validated but not hand-reviewed; the small
+set does not establish a general winner.
 
-`MRR@5` is the mean reciprocal rank of the first top-five chunk matching the
-expected document and any expected page; misses contribute zero. Key-term coverage is a deterministic lexical proxy against case-specific terms.
-It does not evaluate semantic support, answer correctness, or faithfulness.
-The 500/100 configuration performs better on Hit@5, Page Recall@5, MRR@5, and
-relevant-page citations. Its key-term coverage is slightly lower. The small gold
-set does not establish a robust general winner.
+## Local answer and threshold diagnostics
 
-## Answer quality and abstention
+With the threshold disabled, local extractive key-term coverage is 0.597 for
+400/100 and 0.610 for 500/100. Relevant-page citation rates are 0.550 and
+0.600 respectively. These deterministic proxies do not establish that an answer
+is correct or supported.
 
-**Answer correctness, faithfulness, and Gemini answer quality were not
-measured.** The offline runner now scores the deterministic local extractor,
-valid citation indices, relevant-page citations, and exact refusal text, but it
-does not call Gemini or perform human grading.
+At the configured 0.84 minimum similarity, in the previous local-extractor run:
 
-The threshold sweep is diagnostic. With no threshold, the local generator
-answers every answerable and out-of-corpus case, so out-of-corpus refusal is
-0/5. Higher thresholds increase refusal, but a threshold of 0.84 also begins to
-remove answerable evidence in both configurations. The runtime threshold
-remains unset; five negative examples are not enough to calibrate production
-abstention.
+| Metric | 400 / 100 | 500 / 100 |
+|---|---:|---:|
+| Answerable response rate | 100.0% (20/20) | 90.0% (18/20) |
+| Out-of-corpus refusal rate | 80.0% (4/5) | 60.0% (3/5) |
+| Balanced abstention proxy | 0.900 | 0.750 |
+| Valid citation reference rate | 100.0% | 90.0% |
+| Relevant-page citation rate | 50.0% | 50.0% |
 
-The golden set also lacks independently reviewed document/page-level relevance
-labels and broader negative examples. The current report does not include
-human-graded answers, a structured LLM
-judge, judge-versus-human agreement, or threshold calibration.
+The 0.84 threshold is diagnostic, not a calibrated confidence score. It rejects
+some answerable questions and still answers some out-of-corpus questions. Five
+negative examples are insufficient to establish a safe production cutoff.
+Full threshold sweeps and failure examples are recorded in [EVAL.md](./EVAL.md)
+and `eval/results/latest.json`.
 
-## Automated test results
+## Automated tests
 
-Latest run: **23 passed**.
+The most recent focused run after the extractor change reported **48 passed**. It covers API behavior,
+upload validation, local Chroma/SQLite lifecycle, fixed-vector round trips,
+similarity conversion, retrieval/generation validation, rate limiting, and
+ingestion edge cases. The offline evaluation is separate from tests and makes
+no external provider calls.
 
-The tests cover health and frontend responses, PDF and DOCX uploads, duplicate
-rejection, unsupported and malformed documents, scanned/empty files, upload
-size limits, document listing/detail/deletion, empty retrieval refusal,
-mocked answer/citation behavior, mocked generation failure, request validation,
-and Cohere query embedding configuration.
+The API tests use deterministic fakes for several provider-dependent behaviors.
+The notebook executes the actual local service pipeline on the checked-in PDF
+corpus, but neither the tests nor notebook provide a user-supplied DOCX corpus
+or human validation of generated answers.
 
-These are API/unit-level checks. The store is replaced with an in-memory fake in
-document API tests; the answer-generation tests use a mocked generator. The
-suite does not establish live Pinecone/Neon integration, real Gemini quality,
-or an automated upload → retrieve → generate → delete end-to-end result.
+## Limitations and next validation
 
-## Overall assessment and next steps
+- The source corpus contains two PDF documents; a user-provided, hand-reviewed
+  DOCX corpus and answer labels are still needed.
+- The gold set has 20 answerable and 5 out-of-corpus cases. The user has not
+  independently reviewed its questions, references, or relevance labels.
+- No human answer grades, faithfulness scores, validated LLM judge, or
+  judge-versus-human agreement are available.
+- The local baseline is not Gemini answer-quality evaluation. Provider
+  availability, cost, terms, and quotas must be checked before live use.
+- Genuine screenshots, a demo video, and deployment evidence are absent.
 
-- **Functional tests:** pass (23/23).
-- **Top-5 retrieval source-page Hit@5:** 70–75% on 20 answerable cases.
-- **Answer accuracy:** not measured; no defensible percentage available.
-- **Out-of-corpus refusal:** 0/5 without a threshold; threshold-dependent in the diagnostic sweep.
-- **Evaluation confidence:** limited by the small dataset and incomplete labels.
-
-Before describing the system as accurate or submission-ready, expand and verify
-the gold set, report page/source retrieval metrics with correct definitions,
-add a similarity-threshold sweep, evaluate actual generated answers for
-correctness/faithfulness/citation validity/refusal, hand-grade a sample, and
-run a real end-to-end integration test. Report failures as well as successes.
+Do not present the numbers above as answer accuracy or claim that this project
+is submission-ready until these evidence gaps are addressed.

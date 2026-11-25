@@ -49,7 +49,7 @@ def test_threshold_sweep_measures_refusal_and_answer_key_terms():
         "answer_key_terms": ["risk management"],
         "document": "guide.pdf",
         "pages": [1],
-        "question": "What does this passage describe?",
+        "question": "What is important?",
     }
     unanswerable = {
         "answerable": False,
@@ -102,9 +102,8 @@ def test_local_generator_selects_query_relevant_sentences_and_cites_their_chunks
         },
     ]
 
-    answer, model = generator.generate("What culture does GOVERN cultivate?", chunks)
+    answer = generator.generate("What culture does GOVERN cultivate?", chunks)
 
-    assert model == "extractive-local"
-    assert "culture of risk management" in answer.lower()
-    assert "[2]" in answer
-    assert "[1]" not in answer
+    assert answer.model == "extractive-local"
+    assert "culture of risk management" in answer.answer.lower()
+    assert answer.cited_chunk_ids == ["retrieved-2"]

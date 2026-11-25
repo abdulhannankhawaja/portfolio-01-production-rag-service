@@ -1,11 +1,13 @@
+import csv
 import json
 import re
 import sys
 from datetime import date
 from pathlib import Path
+from typing import Any
+from importlib.metadata import PackageNotFoundError, version
 
 import pymupdf
-from sentence_transformers import SentenceTransformer
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -18,8 +20,10 @@ from app.ingestion import clean_text, extract_pdf, split_text
 CORPUS_DIR = ROOT / "corpus"
 GOLDEN_PATH = ROOT / "eval" / "golden.json"
 OUTPUT_PATH = ROOT / "EVAL.md"
+RESULTS_DIR = ROOT / "eval" / "results"
 REFUSAL_TEXT = "The documents do not contain enough information to answer this question."
 TOP_K = 5
+CHUNK_CONFIGURATIONS = ((400, 100), (500, 100))
 THRESHOLDS: tuple[float, ...] = (
     0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80,
     0.82, 0.84, 0.86, 0.88, 0.90, 0.92, 0.94, 0.96,
@@ -73,14 +77,20 @@ def load_and_validate_cases() -> list[dict]:
     return cases
 
 
-def chunks_for_pdf(path: Path, chunk_size: int, overlap: int) -> list[dict]:
+def chunks_for_pdf(
+    path: Path,
+    chunk_size: int,
+    overlap: int,
+    tokenizer: Any | None = None,
+) -> list[dict]:
     pages = extract_pdf(path.read_bytes())
-    chunks = split_text(pages, chunk_size, overlap)
+    chunks = split_text(pages, chunk_size, overlap, tokenizer=tokenizer)
     return [
         {
             "filename": path.name,
             "page": chunk["page"],
             "chunk_index": chunk["chunk_index"],
+            "chunk_id": f"{path.name}:{chunk['chunk_index']}",
             "text": chunk["text"],
         }
         for chunk in chunks
@@ -88,19 +98,38 @@ def chunks_for_pdf(path: Path, chunk_size: int, overlap: int) -> list[dict]:
 
 
 def retrieve(
-    encoder: SentenceTransformer,
+    encoder: Any,
     cases: list[dict],
     chunk_size: int,
     overlap: int,
 ) -> tuple[int, list[tuple[dict, list[dict]]]]:
     corpus = []
     for pdf in sorted(CORPUS_DIR.glob("*.pdf")):
-        corpus.extend(chunks_for_pdf(pdf, chunk_size, overlap))
+        corpus.extend(
+            chunks_for_pdf(
+                pdf,
+                chunk_size,
+                overlap,
+                tokenizer=encoder.tokenizer,
+            )
+        )
     if not corpus:
         raise ValueError(f"No PDF text found in {CORPUS_DIR}")
 
+    passages = ["passage: " + chunk["text"] for chunk in corpus]
+    passage_lengths = encoder.tokenizer(
+        passages,
+        add_special_tokens=True,
+        truncation=False,
+        max_length=1_500_000,
+    )["input_ids"]
+    if any(len(input_ids) > encoder.max_seq_length for input_ids in passage_lengths):
+        raise ValueError(
+            "A chunk exceeds the embedding model context length; "
+            "reduce the chunk size before evaluating"
+        )
     corpus_embeddings = encoder.encode(
-        ["passage: " + chunk["text"] for chunk in corpus],
+        passages,
         normalize_embeddings=True,
         show_progress_bar=False,
         batch_size=64,
@@ -172,10 +201,6 @@ def retrieval_metrics(retrieved: list[tuple[dict, list[dict]]]) -> dict:
     }
 
 
-def citation_indices(answer: str) -> list[int]:
-    return [int(value) for value in re.findall(r"\[(\d+)\]", answer)]
-
-
 def answer_metrics(
     retrieved: list[tuple[dict, list[dict]]],
     threshold: float | None,
@@ -195,8 +220,16 @@ def answer_metrics(
             chunk for chunk in ranked_chunks
             if threshold is None or chunk["score"] >= threshold
         ]
-        answer, _ = generator.generate(case["question"], chunks)
-        refused = normalize(answer) == normalize(REFUSAL_TEXT)
+        chunks = [
+            {
+                **chunk,
+                "chunk_id": chunk.get("chunk_id", f"retrieved-{index}"),
+            }
+            for index, chunk in enumerate(chunks, start=1)
+        ]
+        generated = generator.generate(case["question"], chunks)
+        answer = generated.answer
+        refused = not generated.answerable or normalize(answer) == normalize(REFUSAL_TEXT)
         if case["answerable"]:
             if refused:
                 answerable_refusals += 1
@@ -207,21 +240,26 @@ def answer_metrics(
             key_term_coverage.append(
                 sum(normalize(term) in answer_text for term in terms) / len(terms)
             )
-            indices = citation_indices(answer)
-            if indices and all(1 <= index <= len(chunks) for index in indices):
+            cited_chunks = {
+                chunk["chunk_id"]: chunk
+                for chunk in chunks
+            }
+            cited_ids = generated.cited_chunk_ids
+            if cited_ids and all(chunk_id in cited_chunks for chunk_id in cited_ids):
                 valid_citation_count += 1
                 if any(
-                    (chunks[index - 1]["filename"], chunks[index - 1]["page"])
+                    (
+                        cited_chunks[chunk_id]["filename"],
+                        cited_chunks[chunk_id]["page"],
+                    )
                     in {(case["document"], page) for page in case["pages"]}
-                    for index in indices
+                    for chunk_id in cited_ids
                 ):
                     relevant_page_citations += 1
         elif refused:
             out_of_corpus_refusals += 1
 
-    answerable_response_rate = (
-        (answerable_count - answerable_refusals) / answerable_count
-    )
+    answerable_response_rate = answered_count / answerable_count
     out_of_corpus_refusal_rate = (
         out_of_corpus_refusals / unanswerable_count if unanswerable_count else 0.0
     )
@@ -262,12 +300,12 @@ def render_table(rows: list[dict]) -> str:
 
 
 def evaluate_configuration(
-    encoder: SentenceTransformer,
+    encoder: Any,
     generator: Generator,
     cases: list[dict],
     chunk_size: int,
     overlap: int,
-) -> tuple[dict, list[dict]]:
+) -> tuple[dict, list[dict], list[tuple[dict, list[dict]]]]:
     chunk_count, retrieved = retrieve(encoder, cases, chunk_size, overlap)
     retrieval = retrieval_metrics(retrieved)
     sweep = [
@@ -282,29 +320,180 @@ def evaluate_configuration(
         "overlap": overlap,
         "chunk_count": chunk_count,
         **retrieval,
-    }, sweep
+    }, sweep, retrieved
+
+
+def version_or_unknown(package: str) -> str:
+    try:
+        return version(package)
+    except PackageNotFoundError:
+        return "not installed"
+
+
+def failure_analysis(
+    retrieved: list[tuple[dict, list[dict]]],
+    generator: Generator,
+    threshold: float,
+) -> dict:
+    misses = []
+    answerable_refusals = []
+    unanswerable_answers = []
+    for case, chunks in retrieved:
+        relevant = {
+            (case["document"], page)
+            for page in case.get("pages", [])
+        }
+        retrieved_pages = [
+            (chunk["filename"], chunk["page"])
+            for chunk in chunks
+        ]
+        if case["answerable"] and not relevant.intersection(retrieved_pages):
+            misses.append({
+                "id": case["id"],
+                "expected": sorted(f"{filename}#page-{page}" for filename, page in relevant),
+                "retrieved": [f"{filename}#page-{page}" for filename, page in retrieved_pages],
+            })
+
+        kept = [chunk for chunk in chunks if chunk["score"] >= threshold]
+        kept = [
+            {
+                **chunk,
+                "chunk_id": chunk.get("chunk_id", f"retrieved-{index}"),
+            }
+            for index, chunk in enumerate(kept, start=1)
+        ]
+        generated = generator.generate(case["question"], kept)
+        if case["answerable"] and not generated.answerable:
+            answerable_refusals.append(case["id"])
+        if not case["answerable"] and generated.answerable:
+            unanswerable_answers.append(case["id"])
+    return {
+        "retrieval_miss_ids": [item["id"] for item in misses],
+        "retrieval_miss_examples": misses[:5],
+        "answerable_refusal_ids_at_threshold": answerable_refusals,
+        "unanswerable_answer_ids_at_threshold": unanswerable_answers,
+    }
 
 
 def main() -> None:
+    from sentence_transformers import SentenceTransformer
+
     cases = load_and_validate_cases()
     encoder = SentenceTransformer("intfloat/e5-small-v2")
     generator = Generator(api_key=None, model="local-extractive")
     configurations = []
-    for chunk_size, overlap in ((800, 150), (500, 100)):
-        metrics, sweep = evaluate_configuration(
+    for chunk_size, overlap in CHUNK_CONFIGURATIONS:
+        metrics, sweep, retrieved = evaluate_configuration(
             encoder, generator, cases, chunk_size, overlap
         )
-        configurations.append((metrics, sweep))
+        configurations.append({
+            "retrieval": metrics,
+            "threshold_sweep": sweep,
+            "retrieved_cases": retrieved,
+        })
 
     answerable_count = sum(case["answerable"] for case in cases)
     unanswerable_count = len(cases) - answerable_count
+    selected_threshold = 0.84
+    failures = [
+        failure_analysis(
+            config["retrieved_cases"],
+            generator,
+            selected_threshold,
+        )
+        for config in configurations
+    ]
+    selected_answerable_response_rates = [
+        next(
+            row["answerable_response_rate"]
+            for row in config["threshold_sweep"]
+            if row["threshold"] == selected_threshold
+        )
+        for config in configurations
+    ]
+    results = {
+        "run_date": date.today().isoformat(),
+        "corpus": sorted(path.name for path in CORPUS_DIR.glob("*.pdf")),
+        "gold_cases": len(cases),
+        "answerable_cases": answerable_count,
+        "unanswerable_cases": unanswerable_count,
+        "embedding_model": "intfloat/e5-small-v2",
+        "versions": {
+            "sentence-transformers": version_or_unknown("sentence-transformers"),
+            "transformers": version_or_unknown("transformers"),
+            "torch": version_or_unknown("torch"),
+        },
+        "retrieval_top_k": TOP_K,
+        "threshold_sweep": list(THRESHOLDS),
+        "selected_threshold": selected_threshold,
+        "configurations": [
+            {
+                "retrieval": config["retrieval"],
+                "threshold_sweep": config["threshold_sweep"],
+                "failures_at_selected_threshold": failure,
+            }
+            for config, failure in zip(configurations, failures)
+        ],
+        "evaluation_limitations": [
+            "Reference labels and answer key terms have not been independently hand-graded.",
+            "Answer key-term coverage is a lexical proxy, not correctness or faithfulness.",
+            "No LLM judge, RAGAS, or Langfuse calls are made.",
+        ],
+    }
+
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    json_path = RESULTS_DIR / "latest.json"
+    csv_path = RESULTS_DIR / "latest.csv"
+    json_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
+    with csv_path.open("w", encoding="utf-8", newline="") as output:
+        fieldnames = [
+            "chunk_size",
+            "overlap",
+            "threshold",
+            "answerable_response_rate",
+            "answerable_refusal_rate",
+            "answer_key_term_coverage",
+            "out_of_corpus_refusal_rate",
+            "balanced_abstention_accuracy",
+            "valid_citation_rate",
+            "relevant_page_citation_rate",
+        ]
+        writer = csv.DictWriter(
+            output,
+            fieldnames=fieldnames,
+            lineterminator="\n",
+        )
+        writer.writeheader()
+        for config in configurations:
+            metrics = config["retrieval"]
+            for row in config["threshold_sweep"]:
+                writer.writerow({
+                    "chunk_size": metrics["chunk_size"],
+                    "overlap": metrics["overlap"],
+                    **row,
+                })
+
     report = [
         "# Evaluation",
         "",
         f"Run date: {date.today().isoformat()}",
         "",
         "Generated with the local E5 embedding model and deterministic extractive "
-        "generator. This runner makes no Gemini, Cohere, Pinecone, or Neon calls.",
+        "generator. It makes no remote API calls.",
+        "",
+        f"- **Corpus:** {', '.join(results['corpus'])}.",
+        f"- **Gold set:** {len(cases)} cases ({answerable_count} answerable, "
+        f"{unanswerable_count} unanswerable); answerable evidence quotes are "
+        "checked against their declared PDF pages by the runner.",
+        "- **Embedding:** intfloat/e5-small-v2 (384 dimensions), E5 query/passage "
+        "prefixes, normalized vectors, cosine similarity.",
+        f"- **Versions:** sentence-transformers "
+        f"{results['versions']['sentence-transformers']}, transformers "
+        f"{results['versions']['transformers']}, torch {results['versions']['torch']}.",
+        f"- **Retrieval:** top {TOP_K}; Hit@5 and MRR use answerable questions; "
+        "Page Recall@5 uses the number of labeled source pages as its denominator.",
+        "- **Reproduction:** `python eval/run_evaluation.py`; writes this report, "
+        "`eval/results/latest.json`, and `eval/results/latest.csv`.",
         "",
         "## Gold-set validation",
         "",
@@ -318,7 +507,8 @@ def main() -> None:
         "| Chunking | Chunks | Labeled relevant pages | Hit@5 | Page Recall@5 | MRR@5 |",
         "|---|---:|---:|---:|---:|---:|",
     ]
-    for metrics, _ in configurations:
+    for config in configurations:
+        metrics = config["retrieval"]
         report.append(
             f"| {metrics['chunk_size']}/{metrics['overlap']} "
             f"| {metrics['chunk_count']} | {metrics['relevant_pages']} "
@@ -331,56 +521,128 @@ def main() -> None:
         "Hit@5 is the fraction of answerable questions with at least one labeled "
         "source page in the top five. Page Recall@5 is the total distinct labeled "
         "source pages retrieved divided by all labeled relevant pages. MRR@5 uses "
-        "the rank of the first retrieved chunk from a labeled page. Evidence "
-        "quotes are verified, but page relevance labels still require independent "
-        "human review.",
+        "the rank of the first retrieved chunk from a labeled page. The gold "
+        "labels are script-validated but not yet independently hand-reviewed.",
         "",
         "## Local generated-answer and threshold evaluation",
         "",
         "Answer key-term coverage is a deterministic overlap proxy against "
         "case-specific required terms, not a correctness or faithfulness judge. "
-        "Valid citation references only checks that bracketed indices point to a "
-        "returned chunk; relevant-page citations checks whether a cited chunk is "
-        "from a labeled page. Neither establishes that every answer claim is "
-        "supported. The refusal metric checks the application's exact refusal "
-        "text for the five out-of-corpus cases.",
+        "Key-term coverage is a lexical overlap proxy against case-specific "
+        "required terms. Citation validity checks that generated chunk ids belong "
+        "to the retrieved set; relevant-page citations checks whether a cited "
+        "chunk is on a labeled page. These are not answer correctness or "
+        "faithfulness judgements. Refusal checks the extractor's explicit "
+        "answerable flag and exact refusal text.",
         "",
-        "### 800/150",
+        f"### {configurations[0]['retrieval']['chunk_size']}/"
+        f"{configurations[0]['retrieval']['overlap']}",
         "",
-        render_table(configurations[0][1]),
+        render_table(configurations[0]["threshold_sweep"]),
         "",
-        "### 500/100",
+        f"### {configurations[1]['retrieval']['chunk_size']}/"
+        f"{configurations[1]['retrieval']['overlap']}",
         "",
-        render_table(configurations[1][1]),
+        render_table(configurations[1]["threshold_sweep"]),
         "",
-        "The threshold sweep is diagnostic and the runtime threshold remains "
-        "unset by default. Five negative examples are insufficient to establish "
-        "a production cutoff; use a larger, independently reviewed set before "
-        "enabling one. Scores are calibrated for local E5 and should not be "
-        "assumed transferable to another embedding provider.",
+        f"The runtime default is {selected_threshold:.2f}, selected from this "
+        "diagnostic sweep. At this cutoff the answerable response rates are "
+        f"{selected_answerable_response_rates[0]:.3f} "
+        f"for {configurations[0]['retrieval']['chunk_size']}/"
+        f"{configurations[0]['retrieval']['overlap']} and "
+        f"{selected_answerable_response_rates[1]:.3f} "
+        f"for {configurations[1]['retrieval']['chunk_size']}/"
+        f"{configurations[1]['retrieval']['overlap']}. This is not a "
+        "production-calibrated confidence score. Five "
+        "negative examples are insufficient to establish a safe production "
+        "cutoff; revalidate on a larger, independently reviewed set before "
+        "deployment. Scores are specific to local E5 and must not be transferred "
+        "to another provider.",
+        "",
+        "## Failure analysis",
+        "",
+    ])
+    for config, failure in zip(configurations, failures):
+        metrics = config["retrieval"]
+        report.append(
+            f"### {metrics['chunk_size']}/{metrics['overlap']} "
+            f"(threshold {selected_threshold:.2f})"
+        )
+        report.append("")
+        report.append(
+            "Top-5 retrieval misses: "
+            + (
+                ", ".join(failure["retrieval_miss_ids"])
+                if failure["retrieval_miss_ids"]
+                else "none"
+            )
+            + "."
+        )
+        report.append(
+            "Answerable refusals at threshold: "
+            + (
+                ", ".join(failure["answerable_refusal_ids_at_threshold"])
+                if failure["answerable_refusal_ids_at_threshold"]
+                else "none"
+            )
+            + "."
+        )
+        report.append(
+            "Unanswerable cases answered at threshold: "
+            + (
+                ", ".join(failure["unanswerable_answer_ids_at_threshold"])
+                if failure["unanswerable_answer_ids_at_threshold"]
+                else "none"
+            )
+            + "."
+        )
+        for example in failure["retrieval_miss_examples"][:2]:
+            report.append(
+                f"- `{example['id']}` expected {', '.join(example['expected'])}; "
+                f"top-5 pages were {', '.join(example['retrieved'])}."
+            )
+        report.append("")
+    report.extend([
+        "",
+        "## Evaluation framework and limitations",
+        "",
+        "This is a deterministic, local evaluation harness rather than RAGAS or "
+        "Langfuse. It was chosen to make retrieval, citation-id, and refusal "
+        "checks reproducible without sending the corpus or questions to a third "
+        "party or relying on unknown API quotas. It does not claim semantic "
+        "correctness or faithfulness. An LLM judge was not enabled because its "
+        "quota and reliability against human ratings have not been established; "
+        "at least ten human-graded answers and agreement analysis are still "
+        "required before reporting judge metrics.",
+        "",
+        f"Results are also saved as `{json_path.relative_to(ROOT)}` and "
+        f"`{csv_path.relative_to(ROOT)}`. The local evaluation makes no provider "
+        "calls, so it requires no call cache or quota-resume mechanism.",
         "",
         "## Limitations and next validation",
         "",
-        "- This is not a human-graded answer-quality or faithfulness evaluation.",
-        "- The gold set is small and evidence-page labels have not received "
-        "independent double annotation.",
-        "- The local extractive generator is measured; Gemini generation is not "
-        "called or evaluated.",
-        "- Pinecone/Neon integration and deployed-service behavior are outside "
-        "this offline evaluation.",
-        "- Review errors and expand the corpus/query set before treating these "
-        "metrics as general performance estimates.",
+        "- The gold set is still 20 answerable and 5 out-of-corpus questions; it "
+        "does not yet document independently verified reworded, multi-part, or "
+        "cross-passage examples.",
+        "- The user has not hand-reviewed reference answers or labels; this "
+        "report is not submission-ready evidence of correctness.",
+        "- No human answer grades, judge agreement, faithfulness metric, or "
+        "Gemini answer-quality result is available.",
+        "- DOCX ingestion is tested by generated test fixtures, not a user-provided "
+        "real DOCX corpus.",
+        "- Do not treat key-term coverage or embedding similarity as confidence.",
         "",
     ])
     OUTPUT_PATH.write_text("\n".join(report), encoding="utf-8")
-    summary = {
+    print(json.dumps({
         "gold_cases": len(cases),
-        "configurations": [
-            {"retrieval": metrics, "threshold_sweep": sweep}
-            for metrics, sweep in configurations
+        "retrieval_results": [
+            config["retrieval"]
+            for config in configurations
         ],
-    }
-    print(json.dumps(summary, indent=2))
+        "results_json": str(json_path.relative_to(ROOT)),
+        "results_csv": str(csv_path.relative_to(ROOT)),
+    }, indent=2))
 
 
 if __name__ == "__main__":

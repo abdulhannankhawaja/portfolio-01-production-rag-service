@@ -3,14 +3,18 @@ import io
 import re
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import pymupdf
 from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
+from lxml.etree import XMLSyntaxError
 
 
 MAX_PAGES = 300
 MAX_CHARS = 1_500_000
+MAX_DOCX_MEMBERS = 5_000
+MAX_DOCX_UNCOMPRESSED_BYTES = 20_000_000
 
 
 def sha256_bytes(content: bytes) -> str:
@@ -18,26 +22,55 @@ def sha256_bytes(content: bytes) -> str:
 
 
 def extract_pdf(content: bytes) -> list[tuple[int, str]]:
+    if b"%PDF-" not in content[:1024]:
+        raise ValueError("Invalid PDF file")
     pages: list[tuple[int, str]] = []
     try:
         with pymupdf.open(stream=content, filetype="pdf") as document:
+            if document.needs_pass:
+                raise ValueError("Encrypted PDFs are not supported")
             if len(document) > MAX_PAGES:
                 raise ValueError("PDF has too many pages")
             for number, page in enumerate(document, start=1):
                 text = page.get_text("text").strip()
                 if text:
                     pages.append((number, text))
-    except pymupdf.FileDataError as exc:
+    except (pymupdf.FileDataError, pymupdf.EmptyFileError) as exc:
         raise ValueError("Invalid PDF file") from exc
     return pages
 
 
-def extract_docx(content: bytes) -> list[tuple[int, str, str]]:
+def _validate_docx_archive(content: bytes) -> None:
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            members = archive.infolist()
+            if len(members) > MAX_DOCX_MEMBERS:
+                raise ValueError("DOCX archive contains too many files")
+            if sum(member.file_size for member in members) > MAX_DOCX_UNCOMPRESSED_BYTES:
+                raise ValueError("DOCX archive expands beyond the supported size")
+            if any(member.flag_bits & 0x1 for member in members):
+                raise ValueError("Encrypted DOCX files are not supported")
+            names = {member.filename for member in members}
+            if "[Content_Types].xml" not in names or "word/document.xml" not in names:
+                raise ValueError("Invalid DOCX file")
+    except zipfile.BadZipFile as exc:
+        raise ValueError("Invalid DOCX file") from exc
+
+
+def extract_docx(content: bytes) -> list[tuple[None, str, str]]:
+    _validate_docx_archive(content)
     try:
         document = Document(io.BytesIO(content))
-    except (zipfile.BadZipFile, KeyError, PackageNotFoundError) as exc:
+    except (
+        zipfile.BadZipFile,
+        KeyError,
+        PackageNotFoundError,
+        ValueError,
+        UnicodeDecodeError,
+        XMLSyntaxError,
+    ) as exc:
         raise ValueError("Invalid DOCX file") from exc
-    sections: list[tuple[int, str, str]] = []
+    sections: list[tuple[None, str, str]] = []
     current_heading = ""
     for paragraph in document.paragraphs:
         text = paragraph.text.strip()
@@ -45,10 +78,12 @@ def extract_docx(content: bytes) -> list[tuple[int, str, str]]:
             continue
         if paragraph.style and paragraph.style.name.startswith("Heading"):
             current_heading = text
-        sections.append((1, text, current_heading))
+        sections.append((None, text, current_heading))
     for table in document.tables:
         for row in table.rows:
-            sections.append((1, " | ".join(cell.text.strip() for cell in row.cells), current_heading))
+            row_text = " | ".join(cell.text.strip() for cell in row.cells)
+            if row_text.strip(" |"):
+                sections.append((None, row_text, current_heading))
     return sections
 
 
@@ -62,24 +97,85 @@ def extract_text(content: bytes, filename: str) -> list[tuple]:
 
 
 def clean_text(text: str) -> str:
-    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"[^\S\n]+", " ", text)
+    text = re.sub(r" *\n *", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
 
-def split_text(pages: list[tuple], chunk_size: int, overlap: int) -> list[dict]:
+def _token_offsets(text: str, tokenizer: Any | None) -> list[tuple[int, int]]:
+    if tokenizer is None:
+        return [(match.start(), match.end()) for match in re.finditer(r"\S+", text)]
+    encoded = tokenizer(
+        text,
+        add_special_tokens=False,
+        return_offsets_mapping=True,
+        truncation=False,
+        max_length=MAX_CHARS,
+    )
+    return [
+        (int(start), int(end))
+        for start, end in encoded["offset_mapping"]
+        if end > start
+    ]
+
+
+def _recursive_boundary(
+    text: str,
+    start: int,
+    end: int,
+    separators: tuple[str, ...],
+) -> int:
+    if not separators:
+        return end
+    boundary = text.rfind(separators[0], start + 1, end)
+    if boundary > start:
+        return boundary + len(separators[0])
+    return _recursive_boundary(text, start, end, separators[1:])
+
+
+def split_text(
+    pages: list[tuple],
+    chunk_size: int,
+    overlap: int,
+    tokenizer: Any | None = None,
+) -> list[dict]:
+    if chunk_size < 1 or overlap < 0 or overlap >= chunk_size:
+        raise ValueError("Chunk size must be positive and overlap smaller than chunk size")
     chunks: list[dict] = []
     chunk_index = 0
+    total_chars = 0
     for item in pages:
         page = item[0]
         text = item[1]
         section = item[2] if len(item) > 2 else None
         text = clean_text(text)
-        if len(text) > MAX_CHARS:
+        total_chars += len(text)
+        if total_chars > MAX_CHARS:
             raise ValueError("Document text is too large")
-        start = 0
-        while start < len(text):
-            end = min(start + chunk_size, len(text))
-            chunk = clean_text(text[start:end])
+        offsets = _token_offsets(text, tokenizer)
+        start_token = 0
+        while start_token < len(offsets):
+            end_token = min(start_token + chunk_size, len(offsets))
+            char_start = offsets[start_token][0]
+            char_end = offsets[end_token - 1][1]
+            if end_token < len(offsets):
+                candidate_end = _recursive_boundary(
+                    text,
+                    char_start,
+                    char_end,
+                    ("\n\n", "\n", ". ", " "),
+                )
+                token_end = start_token + 1
+                while (
+                    token_end < end_token
+                    and offsets[token_end][1] <= candidate_end
+                ):
+                    token_end += 1
+                if token_end > start_token:
+                    end_token = token_end
+                    char_end = offsets[end_token - 1][1]
+            chunk = clean_text(text[char_start:char_end])
             if chunk:
                 chunks.append({
                     "text": chunk,
@@ -88,7 +184,7 @@ def split_text(pages: list[tuple], chunk_size: int, overlap: int) -> list[dict]:
                     "chunk_index": chunk_index,
                 })
                 chunk_index += 1
-            if end == len(text):
+            if end_token == len(offsets):
                 break
-            start = max(start + 1, end - overlap)
+            start_token = max(start_token + 1, end_token - overlap)
     return chunks
