@@ -1,12 +1,6 @@
 # Evaluation
 
-Run date: 2026-11-24
-
-> The saved answer/threshold metrics below were generated before the local
-> extractive generator was tightened to abstain when no retrieved sentence
-> matches the question and to prefer the strongest-overlap sentences. Retrieval
-> metrics are unaffected, but answer-side results are stale and must be
-> regenerated before submission.
+Run date: 2026-11-25
 
 Generated with the local E5 embedding model and deterministic extractive generator. It makes no remote API calls.
 
@@ -39,24 +33,24 @@ Answer key-term coverage is a deterministic overlap proxy against case-specific 
 
 | Minimum score | Answerable response | Key-term coverage | Out-of-corpus refusal | Balanced abstention | Valid citation refs | Relevant-page citations |
 |---:|---:|---:|---:|---:|---:|---:|
-| off | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.30 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.35 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.40 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.45 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.50 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.55 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.60 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.65 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.70 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.75 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.80 | 1.000 | 0.597 | 0.000 | 0.500 | 1.000 | 0.550 |
-| 0.82 | 1.000 | 0.597 | 0.400 | 0.700 | 1.000 | 0.550 |
-| 0.84 | 1.000 | 0.560 | 0.800 | 0.900 | 1.000 | 0.500 |
-| 0.86 | 0.750 | 0.358 | 1.000 | 0.875 | 0.750 | 0.350 |
-| 0.88 | 0.550 | 0.268 | 1.000 | 0.775 | 0.550 | 0.250 |
-| 0.90 | 0.150 | 0.100 | 1.000 | 0.575 | 0.150 | 0.000 |
-| 0.92 | 0.050 | 0.050 | 1.000 | 0.525 | 0.050 | 0.000 |
+| off | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.30 | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.35 | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.40 | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.45 | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.50 | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.55 | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.60 | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.65 | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.70 | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.75 | 1.000 | 0.458 | 0.200 | 0.600 | 1.000 | 0.450 |
+| 0.80 | 1.000 | 0.458 | 0.600 | 0.800 | 1.000 | 0.450 |
+| 0.82 | 1.000 | 0.458 | 0.600 | 0.800 | 1.000 | 0.450 |
+| 0.84 | 1.000 | 0.420 | 1.000 | 1.000 | 1.000 | 0.400 |
+| 0.86 | 0.750 | 0.307 | 1.000 | 0.875 | 0.750 | 0.250 |
+| 0.88 | 0.550 | 0.228 | 1.000 | 0.775 | 0.550 | 0.200 |
+| 0.90 | 0.150 | 0.010 | 1.000 | 0.575 | 0.150 | 0.000 |
+| 0.92 | 0.050 | 0.010 | 1.000 | 0.525 | 0.050 | 0.000 |
 | 0.94 | 0.000 | 0.000 | 1.000 | 0.500 | 0.000 | 0.000 |
 | 0.96 | 0.000 | 0.000 | 1.000 | 0.500 | 0.000 | 0.000 |
 
@@ -64,24 +58,24 @@ Answer key-term coverage is a deterministic overlap proxy against case-specific 
 
 | Minimum score | Answerable response | Key-term coverage | Out-of-corpus refusal | Balanced abstention | Valid citation refs | Relevant-page citations |
 |---:|---:|---:|---:|---:|---:|---:|
-| off | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.30 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.35 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.40 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.45 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.50 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.55 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.60 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.65 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.70 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.75 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.80 | 1.000 | 0.610 | 0.000 | 0.500 | 1.000 | 0.600 |
-| 0.82 | 1.000 | 0.610 | 0.400 | 0.700 | 1.000 | 0.600 |
-| 0.84 | 0.900 | 0.460 | 0.600 | 0.750 | 0.900 | 0.500 |
-| 0.86 | 0.700 | 0.370 | 1.000 | 0.850 | 0.700 | 0.350 |
-| 0.88 | 0.450 | 0.255 | 1.000 | 0.725 | 0.450 | 0.200 |
-| 0.90 | 0.100 | 0.100 | 1.000 | 0.550 | 0.100 | 0.000 |
-| 0.92 | 0.050 | 0.050 | 1.000 | 0.525 | 0.050 | 0.000 |
+| off | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.30 | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.35 | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.40 | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.45 | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.50 | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.55 | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.60 | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.65 | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.70 | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.75 | 1.000 | 0.485 | 0.400 | 0.700 | 1.000 | 0.500 |
+| 0.80 | 1.000 | 0.485 | 0.600 | 0.800 | 1.000 | 0.500 |
+| 0.82 | 1.000 | 0.485 | 0.600 | 0.800 | 1.000 | 0.500 |
+| 0.84 | 0.900 | 0.385 | 0.800 | 0.850 | 0.900 | 0.400 |
+| 0.86 | 0.700 | 0.295 | 1.000 | 0.850 | 0.700 | 0.250 |
+| 0.88 | 0.450 | 0.195 | 1.000 | 0.725 | 0.450 | 0.150 |
+| 0.90 | 0.100 | 0.010 | 1.000 | 0.550 | 0.100 | 0.000 |
+| 0.92 | 0.050 | 0.010 | 1.000 | 0.525 | 0.050 | 0.000 |
 | 0.94 | 0.000 | 0.000 | 1.000 | 0.500 | 0.000 | 0.000 |
 | 0.96 | 0.000 | 0.000 | 1.000 | 0.500 | 0.000 | 0.000 |
 
@@ -93,7 +87,7 @@ The runtime default is 0.84, selected from this diagnostic sweep. At this cutoff
 
 Top-5 retrieval misses: rmf-manage, rmf-trustworthy-characteristics, rmf-function-order, rmf-risk-response, genai-data-privacy, genai-information-integrity, genai-harmful-bias, genai-human-ai.
 Answerable refusals at threshold: none.
-Unanswerable cases answered at threshold: out-of-corpus-cake.
+Unanswerable cases answered at threshold: none.
 - `rmf-manage` expected NIST_AI_RMF_1.0.pdf#page-37; top-5 pages were NIST_AI_RMF_1.0.pdf#page-25, NIST_AI_RMF_1.0.pdf#page-38, NIST_AI_RMF_1.0.pdf#page-44, NIST_AI_RMF_1.0.pdf#page-46, NIST_AI_RMF_1.0.pdf#page-26.
 - `rmf-trustworthy-characteristics` expected NIST_AI_RMF_1.0.pdf#page-8; top-5 pages were NIST_AI_RMF_1.0.pdf#page-47, NIST_Generative_AI_Profile.pdf#page-16, NIST_AI_RMF_1.0.pdf#page-17, NIST_AI_RMF_1.0.pdf#page-44, NIST_AI_RMF_1.0.pdf#page-7.
 
@@ -101,7 +95,7 @@ Unanswerable cases answered at threshold: out-of-corpus-cake.
 
 Top-5 retrieval misses: rmf-manage, rmf-trustworthy-characteristics, rmf-function-order, rmf-risk-response, genai-data-privacy, genai-harmful-bias, genai-human-ai.
 Answerable refusals at threshold: rmf-measure, genai-transparency.
-Unanswerable cases answered at threshold: out-of-corpus-cake, out-of-corpus-private-key.
+Unanswerable cases answered at threshold: out-of-corpus-private-key.
 - `rmf-manage` expected NIST_AI_RMF_1.0.pdf#page-37; top-5 pages were NIST_AI_RMF_1.0.pdf#page-25, NIST_AI_RMF_1.0.pdf#page-46, NIST_AI_RMF_1.0.pdf#page-38, NIST_AI_RMF_1.0.pdf#page-26, NIST_AI_RMF_1.0.pdf#page-30.
 - `rmf-trustworthy-characteristics` expected NIST_AI_RMF_1.0.pdf#page-8; top-5 pages were NIST_AI_RMF_1.0.pdf#page-47, NIST_AI_RMF_1.0.pdf#page-7, NIST_AI_RMF_1.0.pdf#page-9, NIST_AI_RMF_1.0.pdf#page-17, NIST_AI_RMF_1.0.pdf#page-25.
 
