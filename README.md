@@ -105,13 +105,13 @@ python eval/run_evaluation.py
 The offline evaluation validates evidence quotes against the checked-in PDFs,
 compares two token-chunking configurations, measures Hit@5/Page Recall@5/MRR,
 checks local extractive answer key-term coverage and citations, and sweeps a
-similarity threshold. It makes no external API calls and writes `EVAL.md`,
+similarity threshold. It makes no external API calls and writes `docs/EVAL.md`,
 `eval/results/latest.json`, and `eval/results/latest.csv`.
 
 Key-term coverage is not answer correctness or faithfulness. The labels and
 reference answers have not been independently hand-graded, and the evaluation
 does not yet include a validated LLM judge, judge-versus-human agreement, or
-human-scored faithfulness/correctness. See [EVAL.md](./EVAL.md) for measured
+human-scored faithfulness/correctness. See [EVAL.md](./docs/EVAL.md) for measured
 results and limitations.
 
 The Jupyter pipeline notebook in `notebooks/pipeline.ipynb` uses the actual
@@ -127,8 +127,11 @@ review.
 - Capture genuine Swagger and frontend screenshots; no screenshots are claimed
   in this repository yet.
 - Record the required demo video and demonstrate the rubric checklist.
-- Add the actual full AI chat-history export yourself; see `AI_USAGE.md` for
+- Add the actual full AI chat-history export yourself; see [AI_USAGE.md](./docs/AI_USAGE.md) for
   the documented tools and known prompts.
 
 Do not treat this repository as submission-ready until these evidence-dependent
 items are complete and reviewed.
+
+Supporting project documentation and the screenshots folder are organized in
+[`docs/`](./docs/README.md).
